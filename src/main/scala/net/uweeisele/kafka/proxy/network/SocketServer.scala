@@ -1,7 +1,7 @@
 package net.uweeisele.kafka.proxy.network
 
 import com.typesafe.scalalogging.LazyLogging
-import net.uweeisele.kafka.proxy.cluster.{Endpoint, KafkaProxyConfig}
+import net.uweeisele.kafka.proxy.config.{Endpoint, KafkaProxyConfig}
 import net.uweeisele.kafka.proxy.security.CredentialProvider
 import org.apache.kafka.common.memory.{MemoryPool, SimpleMemoryPool}
 import org.apache.kafka.common.network.ListenerName

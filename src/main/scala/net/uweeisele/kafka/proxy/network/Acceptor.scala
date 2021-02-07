@@ -1,6 +1,6 @@
 package net.uweeisele.kafka.proxy.network
 
-import net.uweeisele.kafka.proxy.cluster.{Binding, Endpoint}
+import net.uweeisele.kafka.proxy.config.{Binding, Endpoint}
 import net.uweeisele.kafka.proxy.network.Acceptor.USE_DEFAULT_BUFFER_SIZE
 import org.apache.kafka.common.utils.KafkaThread
 

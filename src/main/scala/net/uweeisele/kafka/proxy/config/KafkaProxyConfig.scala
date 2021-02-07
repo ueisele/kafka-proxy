@@ -1,24 +1,13 @@
-package net.uweeisele.kafka.proxy.cluster
+package net.uweeisele.kafka.proxy.config
 
-import java.util
-import java.util.{Collections, Locale, Properties}
-import org.apache.kafka.clients.CommonClientConfigs
-import org.apache.kafka.common.Reconfigurable
-import org.apache.kafka.common.config.SecurityConfig
-import org.apache.kafka.common.config.ConfigDef.{ConfigKey, ValidList}
 import org.apache.kafka.common.config.internals.BrokerSecurityConfigs
-import org.apache.kafka.common.config.types.Password
-import org.apache.kafka.common.config.{AbstractConfig, ConfigDef, ConfigException, SaslConfigs, SslClientAuth, SslConfigs, TopicConfig}
-import org.apache.kafka.common.metrics.Sensor
+import org.apache.kafka.common.config._
 import org.apache.kafka.common.network.ListenerName
-import org.apache.kafka.common.record.{LegacyRecord, Records, TimestampType}
 import org.apache.kafka.common.security.auth.SecurityProtocol
-import org.apache.kafka.common.utils.Utils
-import org.apache.kafka.server.authorizer.Authorizer
 
-import java.security.CryptoPrimitive
-import scala.jdk.CollectionConverters._
+import java.util.{Collections, Locale, Properties}
 import scala.collection.{Map, Seq, mutable}
+import scala.jdk.CollectionConverters._
 
 object Defaults {
 
@@ -27,7 +16,7 @@ object Defaults {
   val QueuedMaxRequests = 500
   val QueuedMaxRequestBytes = -1
 
-  val ListenerSecurityProtocolMap: String = EndPoint.DefaultSecurityProtocolMap.map { case (listenerName, securityProtocol) =>
+  val ListenerSecurityProtocolMap: String = Endpoint.DefaultSecurityProtocolMap.map { case (listenerName, securityProtocol) =>
     s"${listenerName.value}:${securityProtocol.name}"
   }.mkString(",")
 
@@ -373,7 +362,7 @@ class KafkaProxyConfig(val props: java.util.Map[_, _], doLog: Boolean) extends A
     if (csvList == null || csvList.isEmpty)
       Seq.empty[String]
     else
-      csvList.split("\\s*,\\s*").filter(v => !v.equals(""))
+      csvList.split("\\s*;\\s*").filter(v => !v.equals(""))
   }
 
   private def getSecurityProtocol(protocolName: String, configName: String): SecurityProtocol = {

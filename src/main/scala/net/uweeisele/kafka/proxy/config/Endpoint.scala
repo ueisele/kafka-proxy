@@ -1,4 +1,4 @@
-package net.uweeisele.kafka.proxy.cluster
+package net.uweeisele.kafka.proxy.config
 
 import org.apache.kafka.common.network.ListenerName
 import org.apache.kafka.common.security.auth.SecurityProtocol
@@ -14,9 +14,9 @@ object Binding {
   def createBinding(bindingString: String): Binding = {
     bindingString match {
       case bindingParseExp("", port) =>
-        Binding(null, port.toInt)
+        new Binding(null, port.toInt)
       case bindingParseExp(host, port) =>
-        Binding(host, port.toInt)
+        new Binding(host, port.toInt)
       case _ => throw new KafkaException(s"Unable to parse $bindingString to a binding")
     }
   }
@@ -48,7 +48,7 @@ object Endpoint {
     connectionString match {
       case uriParseExp(listenerNameString, bindingsString) =>
         val listenerName = ListenerName.normalised(listenerNameString)
-        Endpoint(listenerName, securityProtocol(listenerName), parseCsvList(bindingsString).map(Binding.createBinding))
+        new Endpoint(listenerName, securityProtocol(listenerName), parseCsvList(bindingsString).map(Binding.createBinding))
       case _ => throw new KafkaException(s"Unable to parse $connectionString to a broker endpoint")
     }
   }

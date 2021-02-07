@@ -12,3 +12,14 @@ libraryDependencies ++= Seq(
   "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % "2.12.1",
   "net.sf.jopt-simple" % "jopt-simple" % "5.0.4"
 )
+
+val proxyMainClass = "net.uweeisele.kafka.proxy.KafkaProxyStartable"
+
+mainClass in (Compile, run) := Some(proxyMainClass)
+mainClass in (Compile, packageBin) := Some(proxyMainClass)
+
+mainClass in assembly := Some(proxyMainClass)
+assemblyMergeStrategy in assembly := {
+  case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
+  case _ => MergeStrategy.first
+}

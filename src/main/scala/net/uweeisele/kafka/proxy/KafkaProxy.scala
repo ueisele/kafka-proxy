@@ -2,7 +2,7 @@ package net.uweeisele.kafka.proxy
 
 
 import com.typesafe.scalalogging.LazyLogging
-import net.uweeisele.kafka.proxy.cluster.KafkaProxyConfig
+import net.uweeisele.kafka.proxy.config.KafkaProxyConfig
 import net.uweeisele.kafka.proxy.network.SocketServer
 import net.uweeisele.kafka.proxy.security.CredentialProvider
 import org.apache.kafka.common.security.scram.internals.ScramMechanism

@@ -21,7 +21,7 @@ object KafkaProxyStartable extends LazyLogging {
     optionParser.accepts("version", "Print version information and exit.")
 
     if (args.length == 0 || args.contains("--help")) {
-      System.err.println("USAGE: java [options] %s server.properties [--override property=value]*".format(classOf[KafkaProxy].getSimpleName()))
+      System.err.println("USAGE: java [options] %s proxy.properties [--override property=value]*".format(classOf[KafkaProxy].getSimpleName()))
       optionParser.printHelpOn(System.err)
       System.exit(1)
     }

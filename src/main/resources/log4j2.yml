@@ -12,7 +12,7 @@ Configuration:
 
   Loggers:
     logger:
-      - name: net.uweeisele.tcp
+      - name: net.uweeisele.kafka
         level: info
         additivity: false
         AppenderRef:
