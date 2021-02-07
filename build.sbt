@@ -10,5 +10,5 @@ libraryDependencies ++= Seq(
   "org.apache.logging.log4j" % "log4j-slf4j-impl" % "2.14.0",
   "com.fasterxml.jackson.core" % "jackson-databind" % "2.12.1",
   "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % "2.12.1",
-  "io.monix" %% "monix-execution" % "3.3.0"
+  "net.sf.jopt-simple" % "jopt-simple" % "5.0.4"
 )

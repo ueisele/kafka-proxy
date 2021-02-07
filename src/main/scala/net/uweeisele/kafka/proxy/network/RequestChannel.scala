@@ -1,11 +1,12 @@
 package net.uweeisele.kafka.proxy.network
 
 import com.typesafe.scalalogging.LazyLogging
+import net.uweeisele.kafka.proxy.request.RequestContext
 import org.apache.kafka.common.memory.MemoryPool
 import org.apache.kafka.common.network.Send
-import org.apache.kafka.common.requests._
+import org.apache.kafka.common.requests.{AbstractRequest, RequestAndSize, RequestHeader}
 import org.apache.kafka.common.security.auth.KafkaPrincipal
-import org.apache.kafka.common.utils.{Sanitizer, Time}
+import org.apache.kafka.common.utils.Sanitizer
 
 import java.net.InetAddress
 import java.nio.ByteBuffer
@@ -18,7 +19,7 @@ object RequestChannel extends LazyLogging {
   sealed trait BaseRequest
   case object ShutdownRequest extends BaseRequest
 
-  case class Session(principal: KafkaPrincipal, clientAddress: InetAddress) {
+  case class Session(principal: KafkaPrincipal, clientAddress: InetAddress, localAddress: InetAddress) {
     val sanitizedUser: String = Sanitizer.sanitize(principal.getName)
   }
 
@@ -28,7 +29,7 @@ object RequestChannel extends LazyLogging {
                 memoryPool: MemoryPool,
                 @volatile private var buffer: ByteBuffer) extends BaseRequest {
 
-    val session: Session = Session(context.principal, context.clientAddress)
+    val session: Session = Session(context.principal, context.clientAddress, context.localAddress)
     private val bodyAndSize: RequestAndSize = context.parseRequest(buffer)
 
     def header: RequestHeader = context.header
@@ -105,7 +106,7 @@ object RequestChannel extends LazyLogging {
   }
 }
 
-class RequestChannel(val queueSize: Int) {
+class RequestChannel(val queueSize: Int) extends LazyLogging {
   import RequestChannel._
   private val requestQueue = new ArrayBlockingQueue[BaseRequest](queueSize)
   private val processors = new ConcurrentHashMap[Int, Processor]()

@@ -1,21 +1,19 @@
 package net.uweeisele.kafka.proxy.network
 
 import com.typesafe.scalalogging.LazyLogging
-import net.uweeisele.kafka.proxy.cluster.ClusterEndpoint
+import net.uweeisele.kafka.proxy.cluster.{Endpoint, KafkaProxyConfig}
 import net.uweeisele.kafka.proxy.security.CredentialProvider
-import org.apache.kafka.common.Endpoint
-import org.apache.kafka.common.config.AbstractConfig
 import org.apache.kafka.common.memory.{MemoryPool, SimpleMemoryPool}
 import org.apache.kafka.common.network.ListenerName
 import org.apache.kafka.common.security.auth.SecurityProtocol
 import org.apache.kafka.common.utils.{KafkaThread, LogContext, Time}
 
-import java.util.concurrent.{CompletableFuture, ConcurrentHashMap}
+import java.util.concurrent.ConcurrentHashMap
+import scala.collection.Seq
 import scala.collection.mutable.ArrayBuffer
-import scala.collection.{Map, Seq}
 import scala.jdk.CollectionConverters._
 
-class SocketServer(val config: AbstractConfig,
+class SocketServer(val config: KafkaProxyConfig,
                    val time: Time,
                    val credentialProvider: CredentialProvider) extends LazyLogging{
 
@@ -24,7 +22,7 @@ class SocketServer(val config: AbstractConfig,
   private val memoryPool = if (config.queuedMaxBytes > 0) new SimpleMemoryPool(config.queuedMaxBytes, config.socketRequestMaxBytes, false, null) else MemoryPool.NONE
 
   private val processors = new ConcurrentHashMap[Int, Processor]()
-  private[network] val acceptors = new ConcurrentHashMap[ClusterEndpoint, Acceptor]()
+  private[network] val acceptors = new ConcurrentHashMap[Endpoint, Acceptor]()
   private val maxQueuedRequests = config.queuedMaxRequests
   val requestChannel = new RequestChannel(maxQueuedRequests)
 
@@ -47,7 +45,7 @@ class SocketServer(val config: AbstractConfig,
    */
   def startup(startProcessingRequests: Boolean = true): Unit = {
     this.synchronized {
-      createAcceptorsAndProcessors(config.numNetworkThreads, config.dataPlaneListeners)
+      createAcceptorsAndProcessors(config.listeners, config.numNetworkThreads)
       if (startProcessingRequests) {
         this.startProcessingRequests()
       }
@@ -67,11 +65,11 @@ class SocketServer(val config: AbstractConfig,
    * @param authorizerFutures Future per [[EndPoint]] used to wait before starting the processor
    *                          corresponding to the [[EndPoint]]
    */
-  def startProcessingRequests(authorizerFutures: Map[Endpoint, CompletableFuture[Void]] = Map.empty): Unit = {
+  def startProcessingRequests(): Unit = {
     logger.info("Starting socket server acceptors and processors")
     this.synchronized {
       if (!startedProcessingRequests) {
-        startProcessorsAndAcceptors(authorizerFutures)
+        startProcessorsAndAcceptors()
         startedProcessingRequests = true
       } else {
         logger.info("Socket server acceptors and processors already started")
@@ -80,26 +78,26 @@ class SocketServer(val config: AbstractConfig,
     logger.info("Started socket server acceptors and processors")
   }
 
-  private def createAcceptorsAndProcessors(clusterEndpoints: Seq[ClusterEndpoint], processorsPerClusterEndpoint: Int): Unit = {
-    clusterEndpoints.foreach { clusterEndpoint =>
-      val acceptor = createAcceptor(clusterEndpoint)
-      addProcessors(acceptor, clusterEndpoint, processorsPerClusterEndpoint)
-      acceptors.put(clusterEndpoint, acceptor)
-      logger.info(s"Created data-plane acceptor and processors for endpoint : ${clusterEndpoint.clusterName}")
+  private def createAcceptorsAndProcessors(endpoints: Seq[Endpoint], processorsPerEndpoint: Int): Unit = {
+    endpoints.foreach { endpoint =>
+      val acceptor = createAcceptor(endpoint)
+      addProcessors(acceptor, endpoint, processorsPerEndpoint)
+      acceptors.put(endpoint, acceptor)
+      logger.info(s"Created data-plane acceptor and processors for endpoint : ${endpoint.listenerName}")
     }
   }
 
-  private def createAcceptor(clusterEndpoint: ClusterEndpoint) : Acceptor = {
+  private def createAcceptor(endpoint: Endpoint) : Acceptor = {
     val sendBufferSize = config.socketSendBufferBytes
     val recvBufferSize = config.socketReceiveBufferBytes
-    new Acceptor(clusterEndpoint, recvBufferSize, sendBufferSize)
+    new Acceptor(endpoint, recvBufferSize, sendBufferSize)
   }
 
-  private def addProcessors(acceptor: Acceptor, clusterEndpoint: ClusterEndpoint, processorsPerClusterEndpoint: Int): Unit = {
-    val clusterName = clusterEndpoint.clusterName
-    val securityProtocol = clusterEndpoint.securityProtocol
+  private def addProcessors(acceptor: Acceptor, endpoint: Endpoint, processorsPerEndpoint: Int): Unit = {
+    val clusterName = endpoint.listenerName
+    val securityProtocol = endpoint.securityProtocol
     val listenerProcessors = new ArrayBuffer[Processor]()
-    for (_ <- 0 until processorsPerClusterEndpoint) {
+    for (_ <- 0 until processorsPerEndpoint) {
       val processor = newProcessor(nextProcessorId, requestChannel, clusterName, securityProtocol, memoryPool)
       listenerProcessors += processor
       requestChannel.addProcessor(processor)
@@ -109,7 +107,7 @@ class SocketServer(val config: AbstractConfig,
     acceptor.addProcessors(listenerProcessors)
   }
 
-  protected[network] def newProcessor(id: Int, requestChannel: RequestChannel, clusterName: ListenerName,
+  protected[network] def newProcessor(id: Int, requestChannel: RequestChannel, listenerName: ListenerName,
                                       securityProtocol: SecurityProtocol, memoryPool: MemoryPool): Processor = {
     new Processor(id,
       time,
@@ -117,7 +115,7 @@ class SocketServer(val config: AbstractConfig,
       requestChannel,
       config.connectionsMaxIdleMs,
       config.failedAuthenticationDelayMs,
-      clusterName,
+      listenerName,
       securityProtocol,
       config,
       credentialProvider,
@@ -131,7 +129,7 @@ class SocketServer(val config: AbstractConfig,
    */
   private def startProcessorsAndAcceptors(): Unit = {
     acceptors.asScala.values.foreach { acceptor =>
-      startAcceptorAndProcessors(acceptor.clusterEndpoint, acceptor)
+      startAcceptorAndProcessors(acceptor.endpoint, acceptor)
     }
   }
 
@@ -141,19 +139,19 @@ class SocketServer(val config: AbstractConfig,
    * Before starting them, we ensure that authorizer has all the metadata to authorize
    * requests on that endpoint by waiting on the provided future.
    */
-  private def startAcceptorAndProcessors(clusterEndpoint: ClusterEndpoint, acceptor: Acceptor): Unit = {
-    logger.debug(s"Wait for authorizer to complete start up on listener ${clusterEndpoint.clusterName}")
-    logger.debug(s"Start processors on listener ${clusterEndpoint.clusterName}")
+  private def startAcceptorAndProcessors(endpoint: Endpoint, acceptor: Acceptor): Unit = {
+    logger.debug(s"Wait for authorizer to complete start up on listener ${endpoint.listenerName}")
+    logger.debug(s"Start processors on listener ${endpoint.listenerName}")
     acceptor.startProcessors()
-    logger.debug(s"Start acceptor thread on listener ${clusterEndpoint.clusterName}")
+    logger.debug(s"Start acceptor thread on listener ${endpoint.listenerName}")
     if (!acceptor.isStarted()) {
       KafkaThread.nonDaemon(
-        s"kafka-socket-acceptor-${clusterEndpoint.clusterName}-${clusterEndpoint.securityProtocol}",
+        s"kafka-socket-acceptor-${endpoint.listenerName}-${endpoint.securityProtocol}",
         acceptor
       ).start()
       acceptor.awaitStartup()
     }
-    logger.info(s"Started acceptor and processor(s) for endpoint : ${clusterEndpoint.clusterName}")
+    logger.info(s"Started acceptor and processor(s) for endpoint : ${endpoint.listenerName}")
   }
 
   /**

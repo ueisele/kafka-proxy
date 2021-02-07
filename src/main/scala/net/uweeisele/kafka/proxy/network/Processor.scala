@@ -2,19 +2,21 @@ package net.uweeisele.kafka.proxy.network
 
 import net.uweeisele.kafka.proxy.network.Processor.ConnectionQueueSize
 import net.uweeisele.kafka.proxy.network.RequestChannel._
+import net.uweeisele.kafka.proxy.request.RequestContext
 import net.uweeisele.kafka.proxy.security.CredentialProvider
+import org.apache.kafka.common.KafkaException
 import org.apache.kafka.common.config.AbstractConfig
 import org.apache.kafka.common.memory.MemoryPool
 import org.apache.kafka.common.metrics.Metrics
 import org.apache.kafka.common.network.KafkaChannel.ChannelMuteEvent
 import org.apache.kafka.common.network._
 import org.apache.kafka.common.protocol.ApiKeys
-import org.apache.kafka.common.requests.{ApiVersionsRequest, RequestContext, RequestHeader}
+import org.apache.kafka.common.requests.{ApiVersionsRequest, RequestHeader}
 import org.apache.kafka.common.security.auth.SecurityProtocol
 import org.apache.kafka.common.utils.{LogContext, Time}
 
 import java.io.IOException
-import java.net.Socket
+import java.net.{InetAddress, InetSocketAddress, Socket}
 import java.nio.channels.SocketChannel
 import java.util.concurrent.{ArrayBlockingQueue, LinkedBlockingDeque}
 import scala.collection.{Map, mutable}
@@ -205,7 +207,7 @@ class Processor(val id: Int,
                 close(channel.id)
               } else {
                 val connectionId = receive.source
-                val context = new RequestContext(header, connectionId, channel.socketAddress,
+                val context = new RequestContext(header, connectionId, channel.socketAddress, localAddressFromChannel(channel),
                   channel.principal, listenerName, securityProtocol,
                   channel.channelMetadataRegistry.clientInformation)
                 val req = new RequestChannel.Request(processor = id, context = context,
@@ -237,6 +239,13 @@ class Processor(val id: Int,
       }
     }
     selector.clearCompletedReceives()
+  }
+
+  private def localAddressFromChannel(channel: KafkaChannel): InetAddress = {
+    channel.selectionKey().channel() match {
+      case socketChannel: SocketChannel => socketChannel.socket().getLocalAddress
+      case _ => throw new KafkaException(s"${channel.id} is not a SocketChannel! Should never be thrown")
+    }
   }
 
   private def processCompletedSends(): Unit = {

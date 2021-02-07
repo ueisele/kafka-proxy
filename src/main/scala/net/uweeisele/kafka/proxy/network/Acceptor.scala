@@ -1,6 +1,6 @@
 package net.uweeisele.kafka.proxy.network
 
-import net.uweeisele.kafka.proxy.cluster.{BrokerEndpoint, ClusterEndpoint}
+import net.uweeisele.kafka.proxy.cluster.{Binding, Endpoint}
 import net.uweeisele.kafka.proxy.network.Acceptor.USE_DEFAULT_BUFFER_SIZE
 import org.apache.kafka.common.utils.KafkaThread
 
@@ -13,25 +13,20 @@ import scala.util.control.ControlThrowable
 
 object Acceptor {
   val USE_DEFAULT_BUFFER_SIZE: Int = -1
-
-  def apply(clusterEndpoint: ClusterEndpoint,
-            recvBufferSize: Int = USE_DEFAULT_BUFFER_SIZE,
-            sendBufferSize: Int = USE_DEFAULT_BUFFER_SIZE): Acceptor =
-    new Acceptor(clusterEndpoint, recvBufferSize, recvBufferSize)
 }
 
-class Acceptor(val clusterEndpoint: ClusterEndpoint,
+class Acceptor(val endpoint: Endpoint,
                recvBufferSize: Int,
                sendBufferSize: Int) extends AbstractServerThread {
 
   private val nioSelector: Selector = Selector.open()
-  private val serverChannels: Seq[ServerSocketChannel] = clusterEndpoint.brokerEndpoints.map(openServerSocket)
+  private val serverChannels: Seq[ServerSocketChannel] = endpoint.bindings.map(openServerSocket)
   private val processors = new ArrayBuffer[Processor]()
   private val processorsStarted = new AtomicBoolean
 
   override def wakeup(): Unit = nioSelector.wakeup()
 
-  private def openServerSocket(endpoint: BrokerEndpoint): ServerSocketChannel = {
+  private def openServerSocket(endpoint: Binding): ServerSocketChannel = {
     val socketAddress =
       if (endpoint.host == null || endpoint.host.trim.isEmpty)
         new InetSocketAddress(endpoint.port)
@@ -67,7 +62,7 @@ class Acceptor(val clusterEndpoint: ClusterEndpoint,
   private def startProcessors(processors: Seq[Processor]): Unit = synchronized {
     processors.foreach { processor =>
       KafkaThread.nonDaemon(
-        s"kafka-proxy-network-thread-${clusterEndpoint.clusterName}-${clusterEndpoint.securityProtocol}-${processor.id}",
+        s"kafka-proxy-network-thread-${endpoint.listenerName}-${endpoint.securityProtocol}-${processor.id}",
         processor
       ).start()
     }
