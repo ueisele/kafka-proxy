@@ -16,7 +16,7 @@ import org.apache.kafka.common.security.auth.SecurityProtocol
 import org.apache.kafka.common.utils.{LogContext, Time}
 
 import java.io.IOException
-import java.net.{InetAddress, InetSocketAddress, Socket}
+import java.net.{InetSocketAddress, Socket, SocketAddress}
 import java.nio.channels.SocketChannel
 import java.util.concurrent.{ArrayBlockingQueue, LinkedBlockingDeque}
 import scala.collection.{Map, mutable}
@@ -207,7 +207,7 @@ class Processor(val id: Int,
                 close(channel.id)
               } else {
                 val connectionId = receive.source
-                val context = new RequestContext(header, connectionId, channel.socketAddress, localAddressFromChannel(channel),
+                val context = new RequestContext(header, connectionId, remoteAddressFromChannel(channel), localAddressFromChannel(channel),
                   channel.principal, listenerName, securityProtocol,
                   channel.channelMetadataRegistry.clientInformation)
                 val req = new RequestChannel.Request(processor = id, context = context,
@@ -241,9 +241,20 @@ class Processor(val id: Int,
     selector.clearCompletedReceives()
   }
 
-  private def localAddressFromChannel(channel: KafkaChannel): InetAddress = {
+  private def remoteAddressFromChannel(channel: KafkaChannel): InetSocketAddress = {
+    addressFromChannel(channel, socketChannel => socketChannel.getRemoteAddress)
+  }
+
+  private def localAddressFromChannel(channel: KafkaChannel): InetSocketAddress = {
+    addressFromChannel(channel, socketChannel => socketChannel.getLocalAddress)
+  }
+
+  private def addressFromChannel(channel: KafkaChannel, supplier: SocketChannel => SocketAddress): InetSocketAddress = {
     channel.selectionKey().channel() match {
-      case socketChannel: SocketChannel => socketChannel.socket().getLocalAddress
+      case socketChannel: SocketChannel => supplier(socketChannel) match {
+        case inetSocketAddress: InetSocketAddress => inetSocketAddress
+        case _ =>  throw new KafkaException(s"${channel.id} is not a InetSocketAddress! Should never be thrown")
+      }
       case _ => throw new KafkaException(s"${channel.id} is not a SocketChannel! Should never be thrown")
     }
   }

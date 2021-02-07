@@ -8,7 +8,7 @@ import org.apache.kafka.common.requests.{AbstractRequest, RequestAndSize, Reques
 import org.apache.kafka.common.security.auth.KafkaPrincipal
 import org.apache.kafka.common.utils.Sanitizer
 
-import java.net.InetAddress
+import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.util.concurrent._
 import scala.annotation.nowarn
@@ -19,7 +19,7 @@ object RequestChannel extends LazyLogging {
   sealed trait BaseRequest
   case object ShutdownRequest extends BaseRequest
 
-  case class Session(principal: KafkaPrincipal, clientAddress: InetAddress, localAddress: InetAddress) {
+  case class Session(principal: KafkaPrincipal, clientAddress: InetSocketAddress, localAddress: InetSocketAddress) {
     val sanitizedUser: String = Sanitizer.sanitize(principal.getName)
   }
 
@@ -29,7 +29,7 @@ object RequestChannel extends LazyLogging {
                 memoryPool: MemoryPool,
                 @volatile private var buffer: ByteBuffer) extends BaseRequest {
 
-    val session: Session = Session(context.principal, context.clientAddress, context.localAddress)
+    val session: Session = Session(context.principal, context.clientSocketAddress, context.localSocketAddress)
     private val bodyAndSize: RequestAndSize = context.parseRequest(buffer)
 
     def header: RequestHeader = context.header
@@ -58,10 +58,9 @@ object RequestChannel extends LazyLogging {
     }
 
     override def toString = s"Request(processor=$processor, " +
-      s"connectionId=${context.connectionId}, " +
+      s"startTimeNanos=$startTimeNanos, " +
       s"session=$session, " +
-      s"listenerName=${context.listenerName}, " +
-      s"securityProtocol=${context.securityProtocol}, " +
+      s"context=$context, " +
       s"buffer=$buffer)"
 
   }

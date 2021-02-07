@@ -3,6 +3,7 @@ package net.uweeisele.kafka.proxy
 
 import com.typesafe.scalalogging.LazyLogging
 import net.uweeisele.kafka.proxy.config.KafkaProxyConfig
+import net.uweeisele.kafka.proxy.filter.RequestLogger
 import net.uweeisele.kafka.proxy.network.SocketServer
 import net.uweeisele.kafka.proxy.security.CredentialProvider
 import org.apache.kafka.common.security.scram.internals.ScramMechanism
@@ -30,6 +31,7 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
   var credentialProvider: CredentialProvider = null
   var tokenCache: DelegationTokenCache = null
   var socketServer: SocketServer = null
+  var requestLogger: RequestLogger = null
 
   def startup(): Unit = {
     try {
@@ -53,6 +55,9 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
         // that credentials have been loaded before processing authentications.
         socketServer = new SocketServer(proxyConfig, time, credentialProvider)
         socketServer.startup(startProcessingRequests = false)
+
+        requestLogger = new RequestLogger(socketServer.requestChannel)
+        requestLogger.start()
 
         socketServer.startProcessingRequests()
 
@@ -85,6 +90,13 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
         // Socket server will be shutdown towards the end of the sequence.
         if (socketServer != null) {
           try {socketServer.stopProcessingRequests()} catch { case e: Throwable => logger.error(e.getMessage, e) }
+        }
+
+        if (requestLogger != null) {
+          try {socketServer.shutdown()} catch { case e: Throwable => logger.error(e.getMessage, e) }
+        }
+
+        if (socketServer != null) {
           try {socketServer.shutdown()} catch { case e: Throwable => logger.error(e.getMessage, e) }
         }
 
