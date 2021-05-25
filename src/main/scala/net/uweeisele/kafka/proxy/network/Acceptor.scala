@@ -116,7 +116,7 @@ class Acceptor(val endpoint: Endpoint,
                     // all processors, block until the last one is able to accept a connection.
                     var retriesLeft = synchronized(processors.length)
                     var processor: Processor = null
-                    do {
+                    while ({ {
                       retriesLeft -= 1
                       processor = synchronized {
                         // adjust the index (if necessary) and retrieve the processor atomically for
@@ -125,7 +125,7 @@ class Acceptor(val endpoint: Endpoint,
                         processors(currentProcessorIndex)
                       }
                       currentProcessorIndex += 1
-                    } while (!assignNewConnection(socketChannel, processor, retriesLeft == 0))
+                    } ; !assignNewConnection(socketChannel, processor, retriesLeft == 0)}) ()
                   }
                 } else {
                   throw new IllegalStateException("Unrecognized key state for acceptor thread.")

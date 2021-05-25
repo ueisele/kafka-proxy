@@ -13,7 +13,7 @@ class RequestContext(val header: RequestHeader,
                      val clientSocketAddress: InetSocketAddress,
                      val localSocketAddress: InetSocketAddress,
                      override val principal: KafkaPrincipal,
-                     listenerName: ListenerName,
+                     listenerNameRef: ListenerName,
                      override val securityProtocol: SecurityProtocol,
                      val clientInformation: ClientInformation)
   extends AuthorizableRequestContext {
@@ -23,7 +23,7 @@ class RequestContext(val header: RequestHeader,
         connectionId,
         clientSocketAddress.getAddress,
         principal,
-        listenerName,
+        listenerNameRef,
         securityProtocol,
         clientInformation)
 
@@ -33,7 +33,7 @@ class RequestContext(val header: RequestHeader,
 
     def apiVersion: Short = internalContext.apiVersion()
 
-    override def listenerName(): String = listenerName.value()
+    override def listenerName(): String = listenerNameRef.value()
 
     override def clientAddress(): InetAddress = clientSocketAddress.getAddress
 

@@ -33,6 +33,7 @@ openssl x509 -req -CA target/ssl/ca-cert -CAkey target/ssl/ca-key -in target/ssl
 keytool -keystore target/ssl/kafka.server.keystore.jks -alias CARoot -importcert -file target/ssl/ca-cert
 keytool -keystore target/ssl/kafka.server.keystore.jks -alias localhost -importcert -file target/ssl/server-certsigned
 ```
+Hint: Sans are only added during the sign request
 
 proxy.properties
 ```
