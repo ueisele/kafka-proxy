@@ -2,7 +2,6 @@ package net.uweeisele.kafka.proxy.network
 
 import com.typesafe.scalalogging.LazyLogging
 import net.uweeisele.kafka.proxy.config.{Endpoint, KafkaProxyConfig}
-import net.uweeisele.kafka.proxy.security.CredentialProvider
 import org.apache.kafka.common.memory.{MemoryPool, SimpleMemoryPool}
 import org.apache.kafka.common.network.ListenerName
 import org.apache.kafka.common.security.auth.SecurityProtocol
@@ -14,8 +13,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.jdk.CollectionConverters._
 
 class SocketServer(val config: KafkaProxyConfig,
-                   val time: Time,
-                   val credentialProvider: CredentialProvider) extends LazyLogging{
+                   val time: Time) extends LazyLogging{
 
   private val logContext = new LogContext(s"[SocketServer] ")
 
@@ -118,7 +116,6 @@ class SocketServer(val config: KafkaProxyConfig,
       listenerName,
       securityProtocol,
       config,
-      credentialProvider,
       memoryPool,
       logContext
     )

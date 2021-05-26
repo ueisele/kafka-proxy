@@ -3,7 +3,7 @@ package net.uweeisele.kafka.proxy.network
 import com.typesafe.scalalogging.LazyLogging
 import net.uweeisele.kafka.proxy.request.RequestContext
 import org.apache.kafka.common.memory.MemoryPool
-import org.apache.kafka.common.network.Send
+import org.apache.kafka.common.network.{NetworkSend, Send}
 import org.apache.kafka.common.requests.{AbstractRequest, RequestAndSize, RequestHeader}
 import org.apache.kafka.common.security.auth.KafkaPrincipal
 import org.apache.kafka.common.utils.Sanitizer
@@ -76,7 +76,7 @@ object RequestChannel extends LazyLogging {
 
   /** responseAsString should only be defined if request logging is enabled */
   class SendResponse(request: Request,
-                     val responseSend: Send,
+                     val responseSend: NetworkSend,
                      val onCompleteCallback: Option[Send => Unit]) extends Response(request) {
     override def onComplete: Option[Send => Unit] = onCompleteCallback
 

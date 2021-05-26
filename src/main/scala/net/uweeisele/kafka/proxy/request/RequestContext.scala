@@ -2,11 +2,12 @@ package net.uweeisele.kafka.proxy.request
 
 import org.apache.kafka.common.network.{ClientInformation, ListenerName, Send}
 import org.apache.kafka.common.requests.{AbstractResponse, RequestAndSize, RequestHeader, RequestContext => JRequestContext}
-import org.apache.kafka.common.security.auth.{KafkaPrincipal, SecurityProtocol}
+import org.apache.kafka.common.security.auth.{KafkaPrincipal, KafkaPrincipalSerde, SecurityProtocol}
 import org.apache.kafka.server.authorizer.AuthorizableRequestContext
 
 import java.net.{InetAddress, InetSocketAddress}
 import java.nio.ByteBuffer
+import java.util.Optional
 
 class RequestContext(val header: RequestHeader,
                      val connectionId: String,
@@ -15,7 +16,8 @@ class RequestContext(val header: RequestHeader,
                      override val principal: KafkaPrincipal,
                      listenerNameRef: ListenerName,
                      override val securityProtocol: SecurityProtocol,
-                     val clientInformation: ClientInformation)
+                     val clientInformation: ClientInformation,
+                     principalSerde: Optional[KafkaPrincipalSerde])
   extends AuthorizableRequestContext {
 
     private val internalContext = new JRequestContext(
@@ -25,11 +27,13 @@ class RequestContext(val header: RequestHeader,
         principal,
         listenerNameRef,
         securityProtocol,
-        clientInformation)
+        clientInformation,
+        true,
+        principalSerde)
 
     def parseRequest(buffer: ByteBuffer): RequestAndSize = internalContext.parseRequest(buffer)
 
-    def buildResponse(body: AbstractResponse): Send = internalContext.buildResponse(body)
+    def buildResponseSend(body: AbstractResponse): Send = internalContext.buildResponseSend(body)
 
     def apiVersion: Short = internalContext.apiVersion()
 

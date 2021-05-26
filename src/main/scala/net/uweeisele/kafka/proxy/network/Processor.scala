@@ -3,7 +3,6 @@ package net.uweeisele.kafka.proxy.network
 import net.uweeisele.kafka.proxy.network.Processor.ConnectionQueueSize
 import net.uweeisele.kafka.proxy.network.RequestChannel._
 import net.uweeisele.kafka.proxy.request.RequestContext
-import net.uweeisele.kafka.proxy.security.CredentialProvider
 import org.apache.kafka.common.KafkaException
 import org.apache.kafka.common.config.AbstractConfig
 import org.apache.kafka.common.memory.MemoryPool
@@ -36,7 +35,6 @@ class Processor(val id: Int,
                 listenerName: ListenerName,
                 securityProtocol: SecurityProtocol,
                 config: AbstractConfig,
-                credentialProvider: CredentialProvider,
                 memoryPool: MemoryPool,
                 logContext: LogContext,
                 connectionQueueSize: Int = ConnectionQueueSize) extends AbstractServerThread {
@@ -50,13 +48,11 @@ class Processor(val id: Int,
   private val responseQueue = new LinkedBlockingDeque[RequestChannel.Response]()
 
   private val selector = createSelector(
-    ChannelBuilders.serverChannelBuilder(listenerName,
-      false,
+    ChannelBuilderBuilder.build(
+      Mode.SERVER,
+      listenerName,
       securityProtocol,
       config,
-      credentialProvider.credentialCache,
-      credentialProvider.tokenCache,
-      time,
       logContext))
   // Visible to override for testing
   protected[network] def createSelector(channelBuilder: ChannelBuilder): Selector = {
@@ -163,7 +159,7 @@ class Processor(val id: Int,
   }
 
   // `protected` for test usage
-  protected[network] def sendResponse(response: RequestChannel.Response, responseSend: Send): Unit = {
+  protected[network] def sendResponse(response: RequestChannel.Response, responseSend: NetworkSend): Unit = {
     val connectionId = response.request.context.connectionId
     logger.trace(s"Socket server received response to send to $connectionId, registering for write and sending data: $response")
     // `channel` can be None if the connection was closed remotely or if selector closed it for being idle for too long
@@ -209,7 +205,7 @@ class Processor(val id: Int,
                 val connectionId = receive.source
                 val context = new RequestContext(header, connectionId, remoteAddressFromChannel(channel), localAddressFromChannel(channel),
                   channel.principal, listenerName, securityProtocol,
-                  channel.channelMetadataRegistry.clientInformation)
+                  channel.channelMetadataRegistry.clientInformation, channel.principalSerde())
                 val req = new RequestChannel.Request(processor = id, context = context,
                   startTimeNanos = nowNanos, memoryPool, receive.payload)
                 // KIP-511: ApiVersionsRequest is intercepted here to catch the client software name
@@ -262,8 +258,8 @@ class Processor(val id: Int,
   private def processCompletedSends(): Unit = {
     selector.completedSends.forEach { send =>
       try {
-        val response = inflightResponses.remove(send.destination).getOrElse {
-          throw new IllegalStateException(s"Send for ${send.destination} completed, but not in `inflightResponses`")
+        val response = inflightResponses.remove(send.destinationId).getOrElse {
+          throw new IllegalStateException(s"Send for ${send.destinationId} completed, but not in `inflightResponses`")
         }
 
         // Invoke send completion callback
@@ -272,11 +268,11 @@ class Processor(val id: Int,
         // Try unmuting the channel. If there was no quota violation and the channel has not been throttled,
         // it will be unmuted immediately. If the channel has been throttled, it will unmuted only if the throttling
         // delay has already passed by now.
-        handleChannelMuteEvent(send.destination, ChannelMuteEvent.RESPONSE_SENT)
-        tryUnmuteChannel(send.destination)
+        handleChannelMuteEvent(send.destinationId, ChannelMuteEvent.RESPONSE_SENT)
+        tryUnmuteChannel(send.destinationId)
       } catch {
-        case e: Throwable => processChannelException(send.destination,
-          s"Exception while processing completed send to ${send.destination}", e)
+        case e: Throwable => processChannelException(send.destinationId,
+          s"Exception while processing completed send to ${send.destinationId}", e)
       }
     }
     selector.clearCompletedSends()
