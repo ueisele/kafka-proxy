@@ -2,12 +2,12 @@
 
 Build
 ```
-sbt assembly
+sbt +assembly
 ```
 
 Run
 ```
-java -Dlog4j.configurationFile=src/main/resources/log4j2.yml -jar target/scala-3.0.0-RC1/scala-tcpsocket-playground-assembly-0.1.jar config/proxy.properties
+java -Dlog4j.configurationFile=src/main/resources/log4j2.yml -jar target/scala-3.0.0-RC1/kafka-proxy-assembly-0.1.jar config/proxy.properties
 ```
 
 ## SSL

@@ -3,12 +3,14 @@ name := "kafka-proxy"
 version := "0.1"
 
 scalaVersion := "3.0.0-RC1"
+crossScalaVersions := Seq("2.13.6", "3.0.0-RC1")
 
-scalacOptions ++= Seq(
-  "-encoding", "UTF-8",
-  "-source:3.0-migration",
-  "-rewrite"
-)
+scalacOptions ++= {
+  Seq("-encoding", "UTF-8")
+  if (scalaVersion.value.startsWith("3"))
+    Seq("-source:3.0-migration", "-rewrite")
+  else Nil
+}
 
 javacOptions ++= Seq("-source", "16", "-target", "16")
 
