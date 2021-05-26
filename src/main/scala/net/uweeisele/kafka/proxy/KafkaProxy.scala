@@ -3,10 +3,8 @@ package net.uweeisele.kafka.proxy
 
 import com.typesafe.scalalogging.LazyLogging
 import net.uweeisele.kafka.proxy.config.KafkaProxyConfig
-import net.uweeisele.kafka.proxy.filter.RequestLogger
 import net.uweeisele.kafka.proxy.network.SocketServer
-import org.apache.kafka.common.security.scram.internals.ScramMechanism
-import org.apache.kafka.common.security.token.delegation.internals.DelegationTokenCache
+import net.uweeisele.kafka.proxy.request.RequestHandlerPool
 import org.apache.kafka.common.utils.Time
 
 import java.util.Properties
@@ -27,8 +25,8 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
 
   private var shutdownLatch = new CountDownLatch(1)
 
-  var socketServer: SocketServer = null
-  var requestLogger: RequestLogger = null
+  private var socketServer: SocketServer = null
+  private var requestHandlerPool: RequestHandlerPool = null
 
   def startup(): Unit = {
     try {
@@ -48,8 +46,8 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
         socketServer = new SocketServer(proxyConfig, time)
         socketServer.startup(startProcessingRequests = false)
 
-        requestLogger = new RequestLogger(socketServer.requestChannel)
-        requestLogger.start()
+        requestHandlerPool = new RequestHandlerPool(socketServer.requestChannel, request => println(request), proxyConfig.numRequestHandlerThreads)
+        requestHandlerPool.start()
 
         socketServer.startProcessingRequests()
 
@@ -84,8 +82,8 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
           try {socketServer.stopProcessingRequests()} catch { case e: Throwable => logger.error(e.getMessage, e) }
         }
 
-        if (requestLogger != null) {
-          try {socketServer.shutdown()} catch { case e: Throwable => logger.error(e.getMessage, e) }
+        if (requestHandlerPool != null) {
+          try {requestHandlerPool.shutdown()} catch { case e: Throwable => logger.error(e.getMessage, e) }
         }
 
         if (socketServer != null) {

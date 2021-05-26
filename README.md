@@ -14,6 +14,10 @@ java -Dlog4j.configurationFile=src/main/resources/log4j2.yml -jar target/scala-3
 
 https://docs.confluent.io/platform/current/security/security_tutorial.html#generating-keys-certs
 
+```
+mkdir -p target/ssl
+```
+
 Generate the keys and certificates
 ```
 keytool -keystore target/ssl/kafka.server.keystore.jks -alias localhost -keyalg RSA -validity 360 -genkeypair -storepass changeit -dname "cn=Kafka Broker, ou=TC, o=Novatec, c=DE" -ext SAN=IP:127.0.0.1,DNS:localhost,DNS:vkafka
@@ -38,9 +42,9 @@ Hint: Sans are only added during the sign request
 proxy.properties
 ```
 listeners=SSL://0.0.0.0:9092,0.0.0.0:9093
-ssl.truststore.location=/home/ue/Repository/ueisele/github/scala-tcpsocket-playground/target/ssl/kafka.server.truststore.jks
+ssl.truststore.location=target/ssl/kafka.server.truststore.jks
 ssl.truststore.password=changeit
-ssl.keystore.location=/home/ue/Repository/ueisele/github/scala-tcpsocket-playground/target/ssl/kafka.server.keystore.jks
+ssl.keystore.location=target/ssl/kafka.server.keystore.jks
 ssl.keystore.password=changeit
 ```
 

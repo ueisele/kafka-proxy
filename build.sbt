@@ -2,7 +2,7 @@ name := "kafka-proxy"
 
 version := "0.1"
 
-scalaVersion := "3.0.0-RC1"
+scalaVersion := "2.13.6"
 crossScalaVersions := Seq("2.13.6", "3.0.0-RC1")
 
 scalacOptions ++= {
@@ -27,6 +27,8 @@ val proxyMainClass = "net.uweeisele.kafka.proxy.KafkaProxyStartable"
 
 Compile / run / mainClass := Some(proxyMainClass)
 Compile / packageBin / mainClass := Some(proxyMainClass)
+
+packageBin / packageOptions += Package.ManifestAttributes( "Multi-Release" -> "true" )
 
 assembly / mainClass := Some(proxyMainClass)
 assembly / assemblyMergeStrategy := {

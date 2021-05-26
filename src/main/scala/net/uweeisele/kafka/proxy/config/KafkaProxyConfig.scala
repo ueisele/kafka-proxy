@@ -1,7 +1,7 @@
 package net.uweeisele.kafka.proxy.config
 
-import org.apache.kafka.common.config.internals.BrokerSecurityConfigs
 import org.apache.kafka.common.config._
+import org.apache.kafka.common.config.internals.BrokerSecurityConfigs
 import org.apache.kafka.common.network.ListenerName
 import org.apache.kafka.common.security.auth.SecurityProtocol
 
@@ -11,7 +11,7 @@ import scala.jdk.CollectionConverters._
 
 object Defaults {
 
-  /** ********* General Configuration ***********/
+  /** ********* General Network Configuration ***********/
   val NumNetworkThreads = 3
   val QueuedMaxRequests = 500
   val QueuedMaxRequestBytes = -1
@@ -41,23 +41,8 @@ object Defaults {
   /** ********* General Security configuration ***********/
   val ConnectionsMaxReauthMsDefault = 0L
 
-  /** ********* Sasl configuration ***********/
-  val SaslEnabledMechanisms = BrokerSecurityConfigs.DEFAULT_SASL_ENABLED_MECHANISMS
-  val SaslKerberosKinitCmd = SaslConfigs.DEFAULT_KERBEROS_KINIT_CMD
-  val SaslKerberosTicketRenewWindowFactor = SaslConfigs.DEFAULT_KERBEROS_TICKET_RENEW_WINDOW_FACTOR
-  val SaslKerberosTicketRenewJitter = SaslConfigs.DEFAULT_KERBEROS_TICKET_RENEW_JITTER
-  val SaslKerberosMinTimeBeforeRelogin = SaslConfigs.DEFAULT_KERBEROS_MIN_TIME_BEFORE_RELOGIN
-  val SaslKerberosPrincipalToLocalRules = BrokerSecurityConfigs.DEFAULT_SASL_KERBEROS_PRINCIPAL_TO_LOCAL_RULES
-  val SaslLoginRefreshWindowFactor = SaslConfigs.DEFAULT_LOGIN_REFRESH_WINDOW_FACTOR
-  val SaslLoginRefreshWindowJitter = SaslConfigs.DEFAULT_LOGIN_REFRESH_WINDOW_JITTER
-  val SaslLoginRefreshMinPeriodSeconds = SaslConfigs.DEFAULT_LOGIN_REFRESH_MIN_PERIOD_SECONDS
-  val SaslLoginRefreshBufferSeconds = SaslConfigs.DEFAULT_LOGIN_REFRESH_BUFFER_SECONDS
-
-  /** ********* Delegation Token configuration ***********/
-  val DelegationTokenMaxLifeTimeMsDefault = 7 * 24 * 60 * 60 * 1000L
-  val DelegationTokenExpiryTimeMsDefault = 24 * 60 * 60 * 1000L
-  val DelegationTokenExpiryCheckIntervalMsDefault = 1 * 60 * 60 * 1000L
-
+  /** ********* General Request Configuration ***********/
+  val NumRequestHandlerThreads = 4
 }
 
 object KafkaProxyConfig {
@@ -109,23 +94,8 @@ object KafkaProxyConfig {
   val SslPrincipalMappingRulesProp = BrokerSecurityConfigs.SSL_PRINCIPAL_MAPPING_RULES_CONFIG
   var SslEngineFactoryClassProp = SslConfigs.SSL_ENGINE_FACTORY_CLASS_CONFIG
 
-  /** ********* SASL Configuration ****************/
-  val SaslJaasConfigProp = SaslConfigs.SASL_JAAS_CONFIG
-  val SaslEnabledMechanismsProp = BrokerSecurityConfigs.SASL_ENABLED_MECHANISMS_CONFIG
-  val SaslServerCallbackHandlerClassProp = BrokerSecurityConfigs.SASL_SERVER_CALLBACK_HANDLER_CLASS
-  val SaslClientCallbackHandlerClassProp = SaslConfigs.SASL_CLIENT_CALLBACK_HANDLER_CLASS
-  val SaslLoginClassProp = SaslConfigs.SASL_LOGIN_CLASS
-  val SaslLoginCallbackHandlerClassProp = SaslConfigs.SASL_LOGIN_CALLBACK_HANDLER_CLASS
-  val SaslKerberosServiceNameProp = SaslConfigs.SASL_KERBEROS_SERVICE_NAME
-  val SaslKerberosKinitCmdProp = SaslConfigs.SASL_KERBEROS_KINIT_CMD
-  val SaslKerberosTicketRenewWindowFactorProp = SaslConfigs.SASL_KERBEROS_TICKET_RENEW_WINDOW_FACTOR
-  val SaslKerberosTicketRenewJitterProp = SaslConfigs.SASL_KERBEROS_TICKET_RENEW_JITTER
-  val SaslKerberosMinTimeBeforeReloginProp = SaslConfigs.SASL_KERBEROS_MIN_TIME_BEFORE_RELOGIN
-  val SaslKerberosPrincipalToLocalRulesProp = BrokerSecurityConfigs.SASL_KERBEROS_PRINCIPAL_TO_LOCAL_RULES_CONFIG
-  val SaslLoginRefreshWindowFactorProp = SaslConfigs.SASL_LOGIN_REFRESH_WINDOW_FACTOR
-  val SaslLoginRefreshWindowJitterProp = SaslConfigs.SASL_LOGIN_REFRESH_WINDOW_JITTER
-  val SaslLoginRefreshMinPeriodSecondsProp = SaslConfigs.SASL_LOGIN_REFRESH_MIN_PERIOD_SECONDS
-  val SaslLoginRefreshBufferSecondsProp = SaslConfigs.SASL_LOGIN_REFRESH_BUFFER_SECONDS
+  /** ********* General Request Configuration ***********/
+  val NumRequestHandlerThreadsProp = "num.request.handler.threads"
 
   /* Documentation */
   /** ********* General Configuration ***********/
@@ -186,23 +156,8 @@ object KafkaProxyConfig {
   val SslPrincipalMappingRulesDoc = BrokerSecurityConfigs.SSL_PRINCIPAL_MAPPING_RULES_DOC
   val SslEngineFactoryClassDoc = SslConfigs.SSL_ENGINE_FACTORY_CLASS_DOC
 
-  /** ********* Sasl Configuration ****************/
-  val SaslJaasConfigDoc = SaslConfigs.SASL_JAAS_CONFIG_DOC
-  val SaslEnabledMechanismsDoc = BrokerSecurityConfigs.SASL_ENABLED_MECHANISMS_DOC
-  val SaslServerCallbackHandlerClassDoc = BrokerSecurityConfigs.SASL_SERVER_CALLBACK_HANDLER_CLASS_DOC
-  val SaslClientCallbackHandlerClassDoc = SaslConfigs.SASL_CLIENT_CALLBACK_HANDLER_CLASS_DOC
-  val SaslLoginClassDoc = SaslConfigs.SASL_LOGIN_CLASS_DOC
-  val SaslLoginCallbackHandlerClassDoc = SaslConfigs.SASL_LOGIN_CALLBACK_HANDLER_CLASS_DOC
-  val SaslKerberosServiceNameDoc = SaslConfigs.SASL_KERBEROS_SERVICE_NAME_DOC
-  val SaslKerberosKinitCmdDoc = SaslConfigs.SASL_KERBEROS_KINIT_CMD_DOC
-  val SaslKerberosTicketRenewWindowFactorDoc = SaslConfigs.SASL_KERBEROS_TICKET_RENEW_WINDOW_FACTOR_DOC
-  val SaslKerberosTicketRenewJitterDoc = SaslConfigs.SASL_KERBEROS_TICKET_RENEW_JITTER_DOC
-  val SaslKerberosMinTimeBeforeReloginDoc = SaslConfigs.SASL_KERBEROS_MIN_TIME_BEFORE_RELOGIN_DOC
-  val SaslKerberosPrincipalToLocalRulesDoc = BrokerSecurityConfigs.SASL_KERBEROS_PRINCIPAL_TO_LOCAL_RULES_DOC
-  val SaslLoginRefreshWindowFactorDoc = SaslConfigs.SASL_LOGIN_REFRESH_WINDOW_FACTOR_DOC
-  val SaslLoginRefreshWindowJitterDoc = SaslConfigs.SASL_LOGIN_REFRESH_WINDOW_JITTER_DOC
-  val SaslLoginRefreshMinPeriodSecondsDoc = SaslConfigs.SASL_LOGIN_REFRESH_MIN_PERIOD_SECONDS_DOC
-  val SaslLoginRefreshBufferSecondsDoc = SaslConfigs.SASL_LOGIN_REFRESH_BUFFER_SECONDS_DOC
+  /** ********* General Request Configuration ***********/
+  val NumRequestHandlerThreadsDoc = "The number of threads that the server uses for handling requests."
 
   private val configDef = {
     import ConfigDef.Importance._
@@ -254,23 +209,8 @@ object KafkaProxyConfig {
       .define(SslPrincipalMappingRulesProp, STRING, Defaults.SslPrincipalMappingRules, LOW, SslPrincipalMappingRulesDoc)
       .define(SslEngineFactoryClassProp, CLASS, null, LOW, SslEngineFactoryClassDoc)
 
-      /** ********* Sasl Configuration ****************/
-      .define(SaslJaasConfigProp, PASSWORD, null, MEDIUM, SaslJaasConfigDoc)
-      .define(SaslEnabledMechanismsProp, LIST, Defaults.SaslEnabledMechanisms, MEDIUM, SaslEnabledMechanismsDoc)
-      .define(SaslServerCallbackHandlerClassProp, CLASS, null, MEDIUM, SaslServerCallbackHandlerClassDoc)
-      .define(SaslClientCallbackHandlerClassProp, CLASS, null, MEDIUM, SaslClientCallbackHandlerClassDoc)
-      .define(SaslLoginClassProp, CLASS, null, MEDIUM, SaslLoginClassDoc)
-      .define(SaslLoginCallbackHandlerClassProp, CLASS, null, MEDIUM, SaslLoginCallbackHandlerClassDoc)
-      .define(SaslKerberosServiceNameProp, STRING, null, MEDIUM, SaslKerberosServiceNameDoc)
-      .define(SaslKerberosKinitCmdProp, STRING, Defaults.SaslKerberosKinitCmd, MEDIUM, SaslKerberosKinitCmdDoc)
-      .define(SaslKerberosTicketRenewWindowFactorProp, DOUBLE, Defaults.SaslKerberosTicketRenewWindowFactor, MEDIUM, SaslKerberosTicketRenewWindowFactorDoc)
-      .define(SaslKerberosTicketRenewJitterProp, DOUBLE, Defaults.SaslKerberosTicketRenewJitter, MEDIUM, SaslKerberosTicketRenewJitterDoc)
-      .define(SaslKerberosMinTimeBeforeReloginProp, LONG, Defaults.SaslKerberosMinTimeBeforeRelogin, MEDIUM, SaslKerberosMinTimeBeforeReloginDoc)
-      .define(SaslKerberosPrincipalToLocalRulesProp, LIST, Defaults.SaslKerberosPrincipalToLocalRules, MEDIUM, SaslKerberosPrincipalToLocalRulesDoc)
-      .define(SaslLoginRefreshWindowFactorProp, DOUBLE, Defaults.SaslLoginRefreshWindowFactor, MEDIUM, SaslLoginRefreshWindowFactorDoc)
-      .define(SaslLoginRefreshWindowJitterProp, DOUBLE, Defaults.SaslLoginRefreshWindowJitter, MEDIUM, SaslLoginRefreshWindowJitterDoc)
-      .define(SaslLoginRefreshMinPeriodSecondsProp, SHORT, Defaults.SaslLoginRefreshMinPeriodSeconds, MEDIUM, SaslLoginRefreshMinPeriodSecondsDoc)
-      .define(SaslLoginRefreshBufferSecondsProp, SHORT, Defaults.SaslLoginRefreshBufferSeconds, MEDIUM, SaslLoginRefreshBufferSecondsDoc)
+      /** ********* General Request Configuration ***********/
+      .define(NumRequestHandlerThreadsProp, INT, Defaults.NumRequestHandlerThreads, atLeast(1), HIGH, NumRequestHandlerThreadsDoc)
   }
 
   def configNames: Seq[String] = configDef.names.asScala.toBuffer.sorted
@@ -307,18 +247,20 @@ class KafkaProxyConfig(val props: java.util.Map[_, _], doLog: Boolean) extends A
 
   /** ********* General Configuration ***********/
   def numNetworkThreads = getInt(KafkaProxyConfig.NumNetworkThreadsProp)
-  val queuedMaxRequests = getInt(KafkaProxyConfig.QueuedMaxRequestsProp)
-  val queuedMaxBytes = getLong(KafkaProxyConfig.QueuedMaxBytesProp)
+  def queuedMaxRequests = getInt(KafkaProxyConfig.QueuedMaxRequestsProp)
+  def queuedMaxBytes = getLong(KafkaProxyConfig.QueuedMaxBytesProp)
 
   /** ********* Socket Server Configuration ***********/
-  val socketSendBufferBytes = getInt(KafkaProxyConfig.SocketSendBufferBytesProp)
-  val socketReceiveBufferBytes = getInt(KafkaProxyConfig.SocketReceiveBufferBytesProp)
-  val socketRequestMaxBytes = getInt(KafkaProxyConfig.SocketRequestMaxBytesProp)
+  def socketSendBufferBytes = getInt(KafkaProxyConfig.SocketSendBufferBytesProp)
+  def socketReceiveBufferBytes = getInt(KafkaProxyConfig.SocketReceiveBufferBytesProp)
+  def socketRequestMaxBytes = getInt(KafkaProxyConfig.SocketRequestMaxBytesProp)
 
-  val connectionsMaxIdleMs = getLong(KafkaProxyConfig.ConnectionsMaxIdleMsProp)
-  val failedAuthenticationDelayMs = getInt(KafkaProxyConfig.FailedAuthenticationDelayMsProp)
+  def connectionsMaxIdleMs = getLong(KafkaProxyConfig.ConnectionsMaxIdleMsProp)
+  def failedAuthenticationDelayMs = getInt(KafkaProxyConfig.FailedAuthenticationDelayMsProp)
 
-  /** ********* Fetch Configuration **************/
+  /** ********* General Request Configuration ***********/
+  def numRequestHandlerThreads = getInt(KafkaProxyConfig.NumRequestHandlerThreadsProp)
+
   private def getMap(propName: String, propValue: String): Map[String, String] = {
     try {
       parseCsvMap(propValue)

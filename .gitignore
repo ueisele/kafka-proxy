@@ -8,3 +8,6 @@ project/plugins/project/
 .cache
 .lib/
 .bsp/
+javacore*
+heapdump*
+Snap.*
