@@ -1,4 +1,4 @@
-name := "scala-tcpsocket-playground"
+name := "kafka-proxy"
 
 version := "0.1"
 
