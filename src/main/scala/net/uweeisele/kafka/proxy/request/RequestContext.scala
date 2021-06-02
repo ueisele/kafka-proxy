@@ -14,7 +14,7 @@ class RequestContext(val header: RequestHeader,
                      val clientSocketAddress: InetSocketAddress,
                      val localSocketAddress: InetSocketAddress,
                      override val principal: KafkaPrincipal,
-                     listenerNameRef: ListenerName,
+                     val listenerNameRef: ListenerName,
                      override val securityProtocol: SecurityProtocol,
                      val clientInformation: ClientInformation,
                      principalSerde: Optional[KafkaPrincipalSerde])

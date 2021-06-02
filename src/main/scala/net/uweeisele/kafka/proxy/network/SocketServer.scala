@@ -9,7 +9,7 @@ import org.apache.kafka.common.utils.{KafkaThread, LogContext, Time}
 
 import java.util.concurrent.ConcurrentHashMap
 import scala.collection.Seq
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.jdk.CollectionConverters._
 
 class SocketServer(val config: KafkaProxyConfig,
@@ -21,6 +21,7 @@ class SocketServer(val config: KafkaProxyConfig,
 
   private val processors = new ConcurrentHashMap[Int, Processor]()
   private[network] val acceptors = new ConcurrentHashMap[Endpoint, Acceptor]()
+  private val connectionListeners = ListBuffer[ConnectionListener]()
   private val maxQueuedRequests = config.queuedMaxRequests
   val requestChannel = new RequestChannel(maxQueuedRequests)
 
@@ -76,12 +77,18 @@ class SocketServer(val config: KafkaProxyConfig,
     logger.info("Started socket server acceptors and processors")
   }
 
+  def addConnectionListener(connectionListener: ConnectionListener): Unit = {
+    connectionListeners += connectionListener
+    acceptors.values().forEach(a => a.addConnectionListener(connectionListener))
+  }
+
   private def createAcceptorsAndProcessors(endpoints: Seq[Endpoint], processorsPerEndpoint: Int): Unit = {
     endpoints.foreach { endpoint =>
       val acceptor = createAcceptor(endpoint)
       addProcessors(acceptor, endpoint, processorsPerEndpoint)
+      connectionListeners.foreach(l => acceptor.addConnectionListener(l))
       acceptors.put(endpoint, acceptor)
-      logger.info(s"Created data-plane acceptor and processors for endpoint : ${endpoint.listenerName}")
+      logger.info(s"Created acceptor and processors for endpoint : ${endpoint.listenerName}")
     }
   }
 

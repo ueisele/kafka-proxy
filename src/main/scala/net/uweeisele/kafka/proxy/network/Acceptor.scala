@@ -8,7 +8,7 @@ import java.net.{InetSocketAddress, SocketException}
 import java.nio.channels.{SelectionKey, Selector, ServerSocketChannel, SocketChannel}
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.collection.Seq
-import scala.collection.mutable.{ArrayBuffer, Buffer}
+import scala.collection.mutable.{ArrayBuffer, Buffer, ListBuffer}
 import scala.util.control.ControlThrowable
 
 object Acceptor {
@@ -23,6 +23,7 @@ class Acceptor(val endpoint: Endpoint,
   private val serverChannels: Seq[ServerSocketChannel] = endpoint.bindings.map(openServerSocket)
   private val processors = new ArrayBuffer[Processor]()
   private val processorsStarted = new AtomicBoolean
+  private val connectionListeners = ListBuffer[ConnectionListener]()
 
   override def wakeup(): Unit = nioSelector.wakeup()
 
@@ -47,7 +48,13 @@ class Acceptor(val endpoint: Endpoint,
     serverChannel
   }
 
+  def addConnectionListener(connectionListener: ConnectionListener): Unit = {
+    connectionListeners += connectionListener
+    processors.foreach(p => p.addConnectionListener(connectionListener))
+  }
+
   private[network] def addProcessors(newProcessors: Buffer[Processor]): Unit = synchronized {
+    newProcessors.foreach(p => connectionListeners.foreach(l => p.addConnectionListener(l)))
     processors ++= newProcessors
     if (processorsStarted.get)
       startProcessors(newProcessors)

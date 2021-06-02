@@ -6,16 +6,22 @@ import org.apache.kafka.common.network.ListenerName
 import org.apache.kafka.common.security.auth.SecurityProtocol
 
 import java.util.{Collections, Locale, Properties}
-import scala.collection.{Map, Seq, mutable}
+import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 object Defaults {
 
-  /** ********* General Network Configuration ***********/
-  val NumNetworkThreads = 3
+  /** ********* General (Acceptor) Network Configuration ***********/
+  val NumNetworkThreads = 2
   val QueuedMaxRequests = 500
   val QueuedMaxRequestBytes = -1
 
+  /** ********* General (Forwarder) Network Configuration ***********/
+  val NumForwarderThreads = 2
+  val QueuedMaxResponses = 500
+  val RequestTimeoutMs = 120000
+
+  /** ********* Socket Server Configuration ***********/
   val ListenerSecurityProtocolMap: String = Endpoint.DefaultSecurityProtocolMap.map { case (listenerName, securityProtocol) =>
     s"${listenerName.value}:${securityProtocol.name}"
   }.mkString(",")
@@ -42,7 +48,11 @@ object Defaults {
   val ConnectionsMaxReauthMsDefault = 0L
 
   /** ********* General Request Configuration ***********/
-  val NumRequestHandlerThreads = 4
+  val NumRequestHandlerThreads = 2
+
+  /** ********* General Response Configuration ***********/
+  val NumResponseHandlerThreads = 2
+
 }
 
 object KafkaProxyConfig {
@@ -53,10 +63,16 @@ object KafkaProxyConfig {
     System.out.println(configDef.toHtml(4, (config: String) => "brokerconfigs_" + config))
   }
 
-  /** ********* General Configuration ***********/
+  /** ********* General (Acceptor) Network Configuration ***********/
   val NumNetworkThreadsProp = "num.network.threads"
   val QueuedMaxRequestsProp = "queued.max.requests"
   val QueuedMaxBytesProp = "queued.max.request.bytes"
+
+  /** ********* General (Forwarder) Network Configuration ***********/
+  val NumForwarderThreadsProp = "num.forwarder.threads"
+  val QueuedMaxResponsesProp = "queued.max.responses"
+  val RequestTimeoutMsProp = "request.timeout.ms"
+
   /** ********* Socket Server Configuration ***********/
   val ListenersProp = "listeners"
   val ListenerSecurityProtocolMapProp = "listener.security.protocol.map"
@@ -97,11 +113,28 @@ object KafkaProxyConfig {
   /** ********* General Request Configuration ***********/
   val NumRequestHandlerThreadsProp = "num.request.handler.threads"
 
+  /** ********* General Forwarder Configuration ***********/
+  val TargetsProp = "targets"
+  val RoutesProp = "routes"
+
+  /** ********* General Response Configuration ***********/
+  val NumResponseHandlerThreadsProp = "num.response.handler.threads"
+
+  /** ********* General Filter Configuration ***********/
+  val AdvertisedListenersProp = "advertised.listeners"
+
+
   /* Documentation */
-  /** ********* General Configuration ***********/
+  /** ********* General (Acceptor) Network Configuration ***********/
   val NumNetworkThreadsDoc = "The number of threads that the server uses for receiving requests from the network and sending responses to the network"
   val QueuedMaxRequestsDoc = "The number of queued requests allowed for data-plane, before blocking the network threads"
   val QueuedMaxRequestBytesDoc = "The number of queued bytes allowed before no more requests are read"
+
+  /** ********* General (Forwarder) Network Configuration ***********/
+  val NumForwarderThreadsDoc = "The number of threads that the server uses for forwarding requests over the network"
+  val QueuedMaxResponsesDoc = "The number of queued responses allowed for data-plane, before blocking the forwarder threads"
+  val RequestTimeoutMsDoc = "The timeout of a request"
+
   /** ********* Socket Server Configuration ***********/
   val ListenersDoc = "Listener List - Comma-separated list of URIs we will listen on and the listener names." +
     s" If the listener name is not a security protocol, <code>$ListenerSecurityProtocolMapProp</code> must also be set.\n" +
@@ -159,6 +192,23 @@ object KafkaProxyConfig {
   /** ********* General Request Configuration ***********/
   val NumRequestHandlerThreadsDoc = "The number of threads that the server uses for handling requests."
 
+  /** ********* General Forwarder Configuration ***********/
+  val TargetsDoc = "Target List - Comma-separated list of URIs we will forward to and the target names." +
+    s" If the target name is not a security protocol, <code>$ListenerSecurityProtocolMapProp</code> must also be set.\n" +
+    " Target names and port numbers must be unique.\n" +
+    " Examples of legal target lists:\n" +
+    " PLAINTEXT://127.0.0.1:19092,127.0.0.1:19093\n" +
+    " PLAINTEXT://127.0.0.1:19092;SSL://127.0.0.1:19093\n"
+  val RoutesDoc = "Route Mapping -> List of route definitions based on listener and target names. For example:\n" +
+    " PLAINTEXT->SSL\n" +
+    " PLAINTEXT->PLAINTEXT,SSL->SSL"
+
+  /** ********* General Response Configuration ***********/
+  val NumResponseHandlerThreadsDoc = "The number of threads that the server uses for handling responses."
+
+  /** ********* General Filter Configuration ***********/
+  val AdvertisedListenersDoc = "Listeners to publish for clients to use, if different than the listeners config property."
+
   private val configDef = {
     import ConfigDef.Importance._
     import ConfigDef.Range._
@@ -167,10 +217,15 @@ object KafkaProxyConfig {
 
     new ConfigDef()
 
-      /** ********* General Configuration ***********/
+      /** ********* General (Acceptor) Network Configuration ***********/
       .define(NumNetworkThreadsProp, INT, Defaults.NumNetworkThreads, atLeast(1), HIGH, NumNetworkThreadsDoc)
       .define(QueuedMaxRequestsProp, INT, Defaults.QueuedMaxRequests, atLeast(1), HIGH, QueuedMaxRequestsDoc)
       .define(QueuedMaxBytesProp, LONG, Defaults.QueuedMaxRequestBytes, MEDIUM, QueuedMaxRequestBytesDoc)
+
+      /** ********* General (Forwarder) Network Configuration ***********/
+      .define(NumForwarderThreadsProp, INT, Defaults.NumForwarderThreads, atLeast(1), HIGH, NumForwarderThreadsDoc)
+      .define(QueuedMaxResponsesProp, INT, Defaults.QueuedMaxResponses, atLeast(1), HIGH, QueuedMaxResponsesDoc)
+      .define(RequestTimeoutMsProp, LONG, Defaults.RequestTimeoutMs, atLeast(1), MEDIUM, RequestTimeoutMsDoc)
 
       /** ********* Socket Server Configuration ***********/
       .define(ListenersProp, STRING, null, HIGH, ListenersDoc)
@@ -211,9 +266,19 @@ object KafkaProxyConfig {
 
       /** ********* General Request Configuration ***********/
       .define(NumRequestHandlerThreadsProp, INT, Defaults.NumRequestHandlerThreads, atLeast(1), HIGH, NumRequestHandlerThreadsDoc)
+
+      /** ********* General Forward Configuration ***********/
+      .define(TargetsProp, STRING, null, HIGH, TargetsDoc)
+      .define(RoutesProp, STRING, null, HIGH, RoutesDoc)
+
+      /** ********* General Response Configuration ***********/
+      .define(NumResponseHandlerThreadsProp, INT, Defaults.NumResponseHandlerThreads, atLeast(1), HIGH, NumResponseHandlerThreadsDoc)
+
+      /** ********* General Filter Configuration ***********/
+      .define(AdvertisedListenersProp, STRING, null, HIGH, AdvertisedListenersDoc)
   }
 
-  def configNames: Seq[String] = configDef.names.asScala.toBuffer.sorted
+  def configNames: Seq[String] = configDef.names.asScala.toBuffer.sorted.toSeq
 
   def fromProps(props: Properties): KafkaProxyConfig =
     fromProps(props, true)
@@ -245,10 +310,15 @@ class KafkaProxyConfig(val props: java.util.Map[_, _], doLog: Boolean) extends A
 
   def this(props: java.util.Map[_, _]) = this(props, true)
 
-  /** ********* General Configuration ***********/
+  /** ********* General (Acceptor) Network Configuration ***********/
   def numNetworkThreads = getInt(KafkaProxyConfig.NumNetworkThreadsProp)
   def queuedMaxRequests = getInt(KafkaProxyConfig.QueuedMaxRequestsProp)
   def queuedMaxBytes = getLong(KafkaProxyConfig.QueuedMaxBytesProp)
+
+  /** ********* General (Forwarder) Network Configuration ***********/
+  def numForwarderThreads = getInt(KafkaProxyConfig.NumForwarderThreadsProp)
+  def queuedMaxResponses = getInt(KafkaProxyConfig.QueuedMaxResponsesProp)
+  def requestTimeoutMs = getLong(KafkaProxyConfig.RequestTimeoutMsProp)
 
   /** ********* Socket Server Configuration ***********/
   def socketSendBufferBytes = getInt(KafkaProxyConfig.SocketSendBufferBytesProp)
@@ -260,6 +330,9 @@ class KafkaProxyConfig(val props: java.util.Map[_, _], doLog: Boolean) extends A
 
   /** ********* General Request Configuration ***********/
   def numRequestHandlerThreads = getInt(KafkaProxyConfig.NumRequestHandlerThreadsProp)
+
+  /** ********* General Response Configuration ***********/
+  def numResponseHandlerThreads = getInt(KafkaProxyConfig.NumResponseHandlerThreadsProp)
 
   private def getMap(propName: String, propValue: String): Map[String, String] = {
     try {
@@ -278,7 +351,7 @@ class KafkaProxyConfig(val props: java.util.Map[_, _], doLog: Boolean) extends A
   def parseCsvMap(str: String): Map[String, String] = {
     val map = new mutable.HashMap[String, String]
     if ("".equals(str))
-      return map
+      return map.toMap
     val keyVals = str.split("\\s*,\\s*").map(s => {
       val lio = s.lastIndexOf(":")
       (s.substring(0,lio).trim, s.substring(lio + 1).trim)
@@ -295,10 +368,37 @@ class KafkaProxyConfig(val props: java.util.Map[_, _], doLog: Boolean) extends A
         listenerList.map(Endpoint.createEndPoint(_, Some(listenerSecurityProtocolMap)))
       } catch {
         case e: Exception =>
-          throw new IllegalArgumentException(s"Error creating broker listeners from '$listeners': ${e.getMessage}", e)
+          throw new ConfigException(s"Error creating broker listeners from '$listeners': ${e.getMessage}", e)
       }
     }.getOrElse(Seq())
   }
+
+  def advertisedListeners: Seq[Endpoint] = {
+    Option(getString(KafkaProxyConfig.AdvertisedListenersProp)).map { listenerProp =>
+      try {
+        val listenerList = parseCsvList(listenerProp)
+        listenerList.map(Endpoint.createEndPoint(_, Some(listenerSecurityProtocolMap)))
+      } catch {
+        case e: Exception =>
+          throw new ConfigException(s"Error creating broker listeners from '$listeners': ${e.getMessage}", e)
+      }
+    }.getOrElse(Seq())
+  }
+
+  def targets: Seq[Endpoint] = {
+    Option(getString(KafkaProxyConfig.TargetsProp)).map { targetsProp =>
+      try {
+        val targetList = parseCsvList(targetsProp)
+        targetList.map(Endpoint.createEndPoint(_, Some(listenerSecurityProtocolMap)))
+      } catch {
+        case e: Exception =>
+          throw new ConfigException(s"Error creating forwarder targets from '$targets': ${e.getMessage}", e)
+      }
+    }.getOrElse(Seq())
+  }
+
+  def routes: Map[ListenerName, ListenerName] =
+    Option(getString(KafkaProxyConfig.RoutesProp)).map { routes => Route.createRouteMap(routes) }.getOrElse(Map())
 
   def parseCsvList(csvList: String): Seq[String] = {
     if (csvList == null || csvList.isEmpty)

@@ -18,6 +18,7 @@ import java.io.IOException
 import java.net.{InetSocketAddress, Socket, SocketAddress}
 import java.nio.channels.SocketChannel
 import java.util.concurrent.{ArrayBlockingQueue, LinkedBlockingDeque}
+import scala.collection.mutable.ListBuffer
 import scala.collection.{Map, mutable}
 import scala.jdk.CollectionConverters._
 import scala.util.control.ControlThrowable
@@ -44,6 +45,7 @@ class Processor(val id: Int,
   }
 
   private val newConnections = new ArrayBlockingQueue[SocketChannel](connectionQueueSize)
+  private val connectionListeners = ListBuffer[ConnectionListener]()
   private val inflightResponses = mutable.Map[String, RequestChannel.Response]()
   private val responseQueue = new LinkedBlockingDeque[RequestChannel.Response]()
 
@@ -70,6 +72,8 @@ class Processor(val id: Int,
       memoryPool,
       logContext)
   }
+
+  def addConnectionListener(connectionListener: ConnectionListener): Unit = connectionListeners += connectionListener
 
   // Connection ids have the format `localAddr:localPort-remoteAddr:remotePort-index`. The index is a
   // non-negative incrementing value that ensures that even if remotePort is reused after a connection is
@@ -159,7 +163,7 @@ class Processor(val id: Int,
   }
 
   // `protected` for test usage
-  protected[network] def sendResponse(response: RequestChannel.Response, responseSend: NetworkSend): Unit = {
+  protected[network] def sendResponse(response: RequestChannel.Response, responseSend: Send): Unit = {
     val connectionId = response.request.context.connectionId
     logger.trace(s"Socket server received response to send to $connectionId, registering for write and sending data: $response")
     // `channel` can be None if the connection was closed remotely or if selector closed it for being idle for too long
@@ -170,7 +174,7 @@ class Processor(val id: Int,
     // removed from the Selector after discarding any pending staged receives.
     // `openOrClosingChannel` can be None if the selector closed the connection because it was idle for too long
     if (openOrClosingChannel(connectionId).isDefined) {
-      selector.send(responseSend)
+      selector.send(new NetworkSend(connectionId, responseSend))
       inflightResponses += (connectionId -> response)
     }
   }
@@ -247,12 +251,16 @@ class Processor(val id: Int,
 
   private def addressFromChannel(channel: KafkaChannel, supplier: SocketChannel => SocketAddress): InetSocketAddress = {
     channel.selectionKey().channel() match {
-      case socketChannel: SocketChannel => supplier(socketChannel) match {
-        case inetSocketAddress: InetSocketAddress => inetSocketAddress
-        case _ =>  throw new KafkaException(s"${channel.id} is not a InetSocketAddress! Should never be thrown")
-      }
+      case socketChannel: SocketChannel => asInetSocketAddress(supplier(socketChannel))
       case _ => throw new KafkaException(s"${channel.id} is not a SocketChannel! Should never be thrown")
     }
+  }
+
+  private def asInetSocketAddress(socketAddress: SocketAddress): InetSocketAddress = {
+      socketAddress match {
+        case inetSocketAddress: InetSocketAddress => inetSocketAddress
+        case _ =>  throw new KafkaException(s"$socketAddress is not a InetSocketAddress! Should never be thrown")
+      }
   }
 
   private def processCompletedSends(): Unit = {
@@ -264,6 +272,8 @@ class Processor(val id: Int,
 
         // Invoke send completion callback
         response.onComplete.foreach(onComplete => onComplete(send))
+
+        response.request.releaseBuffer()
 
         // Try unmuting the channel. If there was no quota violation and the channel has not been throttled,
         // it will be unmuted immediately. If the channel has been throttled, it will unmuted only if the throttling
@@ -280,6 +290,7 @@ class Processor(val id: Int,
 
   private def processDisconnected(): Unit = {
     selector.disconnected.keySet.forEach { connectionId =>
+      connectionListeners.foreach(l => l.onConnectionClosed(listenerName, connectionId))
       inflightResponses.remove(connectionId)
     }
   }
@@ -294,6 +305,7 @@ class Processor(val id: Int,
   private def close(connectionId: String): Unit = {
     openOrClosingChannel(connectionId).foreach { channel =>
       logger.debug(s"Closing selector connection $connectionId")
+      connectionListeners.foreach(l => l.onConnectionClosed(listenerName, connectionId))
       selector.close(connectionId)
       inflightResponses.remove(connectionId)
     }
@@ -330,7 +342,9 @@ class Processor(val id: Int,
       try {
         logger.debug(s"Processor $id listening to new connection from ${channel.socket.getRemoteSocketAddress} " +
           s"on ${channel.socket.getLocalSocketAddress}")
-        selector.register(connectionId(channel.socket), channel)
+        val channelId = connectionId(channel.socket)
+        connectionListeners.foreach(l => l.onConnectionEstablished(listenerName, channelId, asInetSocketAddress(channel.socket().getLocalSocketAddress)))
+        selector.register(channelId, channel)
         connectionsProcessed += 1
       } catch {
         // We explicitly catch all exceptions and close the socket to avoid a socket leak.

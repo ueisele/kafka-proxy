@@ -4,7 +4,8 @@ import com.typesafe.scalalogging.LazyLogging
 import net.uweeisele.kafka.proxy.request.RequestContext
 import org.apache.kafka.common.memory.MemoryPool
 import org.apache.kafka.common.network.{NetworkSend, Send}
-import org.apache.kafka.common.requests.{AbstractRequest, RequestAndSize, RequestHeader}
+import org.apache.kafka.common.protocol.{Errors, ObjectSerializationCache}
+import org.apache.kafka.common.requests.{AbstractRequest, AbstractResponse, EnvelopeResponse, RequestAndSize, RequestHeader}
 import org.apache.kafka.common.security.auth.KafkaPrincipal
 import org.apache.kafka.common.utils.Sanitizer
 
@@ -35,11 +36,17 @@ object RequestChannel extends LazyLogging {
     def header: RequestHeader = context.header
     def sizeOfBodyInBytes: Int = bodyAndSize.size
 
+    def sizeInBytes: Int = header.size(new ObjectSerializationCache) + sizeOfBodyInBytes
+
     //most request types are parsed entirely into objects at this point. for those we can release the underlying buffer.
     //some (like produce, or any time the schema contains fields of types BYTES or NULLABLE_BYTES) retain a reference
     //to the buffer. for those requests we cannot release the buffer early, but only when request processing is done.
     if (!header.apiKey.requiresDelayedAllocation) {
       releaseBuffer()
+    }
+
+    def buildResponseSend(abstractResponse: AbstractResponse): Send = {
+      context.buildResponseSend(abstractResponse)
     }
 
     def body[T <: AbstractRequest](implicit classTag: ClassTag[T], @nowarn("cat=unused") nn: NotNothing[T]): T = {
@@ -61,6 +68,7 @@ object RequestChannel extends LazyLogging {
       s"startTimeNanos=$startTimeNanos, " +
       s"session=$session, " +
       s"context=$context, " +
+      s"body=${body[AbstractRequest]}, " +
       s"buffer=$buffer)"
 
   }
@@ -74,14 +82,21 @@ object RequestChannel extends LazyLogging {
     def toString: String
   }
 
+  object ShutdownResponse extends Response(null) {
+    override def toString: String = "ShutdownResponse"
+  }
+
   /** responseAsString should only be defined if request logging is enabled */
   class SendResponse(request: Request,
-                     val responseSend: NetworkSend,
+                     val response: AbstractResponse,
+                     val forwardContext: RequestContext,
                      val onCompleteCallback: Option[Send => Unit]) extends Response(request) {
+    def responseSend = request.buildResponseSend(response)
+
     override def onComplete: Option[Send => Unit] = onCompleteCallback
 
     override def toString: String =
-      s"Response(type=Send, request=$request, send=$responseSend)"
+      s"Response(type=Send, request=$request, response=$response, send=$responseSend, forwardContext=$forwardContext)"
   }
 
   class NoOpResponse(request: Request) extends Response(request) {

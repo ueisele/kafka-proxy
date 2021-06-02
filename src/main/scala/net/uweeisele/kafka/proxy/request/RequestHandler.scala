@@ -2,15 +2,11 @@ package net.uweeisele.kafka.proxy.request
 
 import net.uweeisele.kafka.proxy.network.{AbstractServerThread, RequestChannel}
 
-trait ApiRequestHandler {
-  def handle(request: RequestChannel.Request): Unit
-}
-
 class RequestHandler(val id: Int,
                      requestChannel: RequestChannel,
                      apis: ApiRequestHandler) extends AbstractServerThread {
 
-  override def wakeup(): Unit = ???
+  override def wakeup(): Unit = {}
 
   override def run(): Unit = {
     startupComplete()
@@ -26,8 +22,6 @@ class RequestHandler(val id: Int,
               apis.handle(request)
             } catch {
               case e: Throwable => logger.error(s"Exception when handling request on request handler $id", e)
-            } finally {
-              request.releaseBuffer()
             }
 
           case null => //continue

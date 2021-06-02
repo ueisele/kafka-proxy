@@ -3,8 +3,11 @@ package net.uweeisele.kafka.proxy
 
 import com.typesafe.scalalogging.LazyLogging
 import net.uweeisele.kafka.proxy.config.KafkaProxyConfig
+import net.uweeisele.kafka.proxy.filter.{AdvertisedListenerRewriteFilter, AdvertisedListenerTable}
+import net.uweeisele.kafka.proxy.forward.{RequestForwarder, RouteTable}
 import net.uweeisele.kafka.proxy.network.SocketServer
-import net.uweeisele.kafka.proxy.request.RequestHandlerPool
+import net.uweeisele.kafka.proxy.request.{ApiRequestHandlerChain, RequestHandlerPool}
+import net.uweeisele.kafka.proxy.response.{ApiResponseHandlerChain, ResponseHandlerPool}
 import org.apache.kafka.common.utils.Time
 
 import java.util.Properties
@@ -27,13 +30,15 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
 
   private var socketServer: SocketServer = null
   private var requestHandlerPool: RequestHandlerPool = null
+  private var requestForwarder: RequestForwarder = null
+  private var responseHandlerPool: ResponseHandlerPool = null
 
   def startup(): Unit = {
     try {
       logger.info("starting")
 
       if (isShuttingDown.get)
-        throw new IllegalStateException("Kafka server is still shutting down, cannot re-start!")
+        throw new IllegalStateException("Kafka proxy is still shutting down, cannot re-start!")
 
       if (startupComplete.get)
         return
@@ -46,8 +51,23 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
         socketServer = new SocketServer(proxyConfig, time)
         socketServer.startup(startProcessingRequests = false)
 
-        requestHandlerPool = new RequestHandlerPool(socketServer.requestChannel, request => println(request), proxyConfig.numRequestHandlerThreads)
+        def routeTable = new RouteTable(proxyConfig.routes, proxyConfig.listeners, proxyConfig.targets)
+        requestForwarder = new RequestForwarder(proxyConfig, routeTable, time)
+        requestForwarder.startup()
+        socketServer.addConnectionListener(requestForwarder)
+
+        def apiRequestHandlerChain = new ApiRequestHandlerChain(Seq(
+          request => println(request),
+          requestForwarder))
+        requestHandlerPool = new RequestHandlerPool(socketServer.requestChannel, apiRequestHandlerChain, proxyConfig.numRequestHandlerThreads)
         requestHandlerPool.start()
+
+        def advertisedListenerTable = new AdvertisedListenerTable(proxyConfig.listeners, proxyConfig.advertisedListeners)
+        def apiResponseHandlerChain = new ApiResponseHandlerChain(Seq(
+          new AdvertisedListenerRewriteFilter(routeTable, advertisedListenerTable),
+          response => println(response)))
+        responseHandlerPool = new ResponseHandlerPool(socketServer.requestChannel, requestForwarder.forwardChannel, apiResponseHandlerChain, proxyConfig.numResponseHandlerThreads)
+        responseHandlerPool.start()
 
         socketServer.startProcessingRequests()
 
@@ -84,6 +104,14 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
 
         if (requestHandlerPool != null) {
           try {requestHandlerPool.shutdown()} catch { case e: Throwable => logger.error(e.getMessage, e) }
+        }
+
+        if(requestForwarder != null) {
+          try {requestForwarder.shutdown()} catch { case e: Throwable => logger.error(e.getMessage, e) }
+        }
+
+        if(responseHandlerPool != null) {
+          try {responseHandlerPool.shutdown()} catch { case e: Throwable => logger.error(e.getMessage, e) }
         }
 
         if (socketServer != null) {
