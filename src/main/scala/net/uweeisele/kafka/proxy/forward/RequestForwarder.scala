@@ -35,7 +35,7 @@ class RequestForwarder(val config: KafkaProxyConfig,
     }
 
   override def onConnectionEstablished(listener: ListenerName, connectionId: String, address: InetSocketAddress): Unit = {
-    logger.info(s"Client established connection $connectionId to ${listener.value}://${address.getAddress.getHostAddress}:${address.getPort}")
+    logger.info(s"Client established connection $connectionId to ${listener.value}://${address.getHostName}#${address.getAddress.getHostAddress}:${address.getPort}")
     routeTable.targetEndpointByConnection(listener, address) match {
       case Some(target) => forwardChannel.connect(target.listenerName, connectionId, new InetSocketAddress(target.host, target.port))
       case None => logger.info(s"Cannot connect to target. No target endpoint found for ${listener.value}://${address.getAddress.getHostAddress}:${address.getPort}")

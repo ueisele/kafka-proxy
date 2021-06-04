@@ -1,4 +1,4 @@
-# Kafka Proxy
+# PoC: Kafka Proxy
 
 Build
 ```
