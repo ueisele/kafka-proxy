@@ -96,7 +96,7 @@ object RequestChannel extends LazyLogging {
     override def onComplete: Option[Send => Unit] = onCompleteCallback
 
     override def toString: String =
-      s"Response(type=Send, request=$request, response=$response, send=$responseSend, forwardContext=$forwardContext)"
+      s"Response(type=Send, request=$request, response=$response, forwardContext=$forwardContext)"
   }
 
   class NoOpResponse(request: Request) extends Response(request) {

@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+. /opt/kafka-proxy/docker/bash-config
+
+# Set environment values if they exist as arguments
+if [ $# -ne 0 ]; then
+  echo "===> Overriding env params with args ..."
+  for var in "$@"
+  do
+    export "$var"
+  done
+fi
+
+echo "===> User"
+id
+
+echo "===> Configuring ..."
+/opt/kafka-proxy/docker/configure
+
+echo "===> Launching ... "
+exec /opt/kafka-proxy/docker/launch

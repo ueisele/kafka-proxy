@@ -1,0 +1,232 @@
+#!/usr/bin/env bash
+set -e
+SCRIPT_DIR="$(readlink -f "$(dirname ${BASH_SOURCE[0]})")"
+PROJECT_ROOT="$(readlink -f "${SCRIPT_DIR}/..")"
+
+DEFAULT_TARGET_DIR="${PROJECT_ROOT}/target/certs"
+DEFAULT_GROUP="kafka-proxy"
+DEFAULT_NAME="server"
+DEFAULT_STORE_PASS="changeit"
+DEFAULT_ALG="RSA"
+DEFAULT_CERT_DNAME="/C=DE/ST=Hessen/L=Frankfurt/O=Uwe Eisele/CN=Kafka Proxy"
+DEFAULT_CERT_VALIDITY=365
+
+function usageCert () {
+    echo "$0: $1" >&2
+    echo
+    echo "Usage: $0 \\"
+    echo "         --target-dir \"\$(pwd)/target/certs\" \\"
+    echo "         --group kafka-proxy \\"
+    echo "         --name server \\"
+    echo "         --store-pass changeit \\"
+    echo "         --alg RSA \\"
+    echo "         --cert-dname \"/C=DE/ST=Hessen/L=Frankfurt/O=Uwe Eisele/CN=Kafka Proxy\" \\"
+    echo "         --cert-validity 365 \\"
+    echo "         --san \"IP:127.0.0.1,DNS:localhost\""
+    echo
+    return 1
+}
+
+function parseCmdCert () {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --help)
+                usageCert "Help"
+                return $?
+                ;;
+            --target-dir)
+                shift
+                case "$1" in
+                    ""|--*)
+                        usage "Requires target directory"
+                        return 1
+                        ;;
+                    *)
+                        TARGET_DIR="$1"
+                        shift
+                        ;;
+                esac
+                ;;
+            --group)
+                shift
+                case "$1" in
+                    ""|--*)
+                        usageCert "Requires grouo"
+                        return 1
+                        ;;
+                    *)
+                        GROUP="$1"
+                        shift
+                        ;;
+                esac
+                ;;
+            --name)
+                shift
+                case "$1" in
+                    ""|--*)
+                        usageCert "Requires name"
+                        return 1
+                        ;;
+                    *)
+                        NAME="$1"
+                        shift
+                        ;;
+                esac
+                ;;
+            --store-pass)
+                shift
+                case "$1" in
+                    ""|--*)
+                        usageCert "Requires store password"
+                        return 1
+                        ;;
+                    *)
+                        STORE_PASS="$1"
+                        shift
+                        ;;
+                esac
+                ;;
+            --cert-dname)
+                shift
+                case "$1" in
+                    ""|--*)
+                        usageCert "Requires dname"
+                        return 1
+                        ;;
+                    *)
+                        CERT_DNAME="$1"
+                        shift
+                        ;;
+                esac
+                ;;
+            --san)
+                shift
+                case "$1" in
+                    ""|--*)
+                        usageCert "Requires SAN"
+                        return 1
+                        ;;
+                    *)
+                        SAN="$1"
+                        shift
+                        ;;
+                esac
+                ;;
+            --cert-validity)
+                shift
+                case "$1" in
+                    ""|--*)
+                        usageCert "Requires validity days"
+                        return 1
+                        ;;
+                    *)
+                        CERT_VALIDITY="$1"
+                        shift
+                        ;;
+                esac
+                ;;
+            --alg)
+                shift
+                case "$1" in
+                    ""|--*)
+                        usageCert "Requires algorithm"
+                        return 1
+                        ;;
+                    *)
+                        ALG="$1"
+                        shift
+                        ;;
+                esac
+                ;;
+            *)
+                usageCert "Unknown option: $1"
+                return $?
+                ;;
+        esac
+    done
+    return 0
+}
+
+function initCert () {
+    if [ -z "${TARGET_DIR}" ]; then
+        TARGET_DIR="$DEFAULT_TARGET_DIR"
+    fi
+    if [ -z "${GROUP}" ]; then
+        GROUP="$DEFAULT_GROUP"
+    fi
+    if [ -z "${NAME}" ]; then
+        NAME="$DEFAULT_NAME"
+    fi
+    if [ -z "${STORE_PASS}" ]; then
+        STORE_PASS="$DEFAULT_STORE_PASS"
+    fi
+    if [ -z "${CERT_DNAME}" ]; then
+        CERT_DNAME="$DEFAULT_CERT_DNAME"
+    fi
+    if [ -z "${CERT_VALIDITY}" ]; then
+        CERT_VALIDITY="$DEFAULT_CERT_VALIDITY"
+    fi
+    if [ -z "${ALG}" ]; then
+        ALG="$DEFAULT_ALG"
+    fi
+    CA_KEY_FULLPATH="${TARGET_DIR}/${GROUP}.ca.key.pem"
+    CA_CERT_FULLPATH="${TARGET_DIR}/${GROUP}.ca.cert.pem"
+    KEY_FULLPATH="${TARGET_DIR}/${GROUP}.${NAME}.key.pem"
+    CERT_FULLPATH="${TARGET_DIR}/${GROUP}.${NAME}.cert.pem"
+    KEYSTORE_FULLPATH="${TARGET_DIR}/${GROUP}.${NAME}.keystore.jks"
+}
+
+function cleanCert () {
+  mkdir -p "${TARGET_DIR}"
+  rm -f "${KEY_FULLPATH}"
+  rm -f "${CERT_FULLPATH}"
+  rm -f "${KEYSTORE_FULLPATH}"
+}
+
+function createAndSignServerCert () {
+  echo "Creating and Signing Server Certificate..."
+  local tmpreq
+  tmpreq=$(mktemp)
+  openssl req -new -nodes -keyout "${KEY_FULLPATH}" -out "${tmpreq}" -subj "${CERT_DNAME}"
+  if [ -n "${SAN}" ]; then
+    openssl x509 -req -CAkey "${CA_KEY_FULLPATH}" -CA "${CA_CERT_FULLPATH}" -in "${tmpreq}" -out "${CERT_FULLPATH}" -days "${CERT_VALIDITY}" -CAcreateserial -extfile <(printf "subjectAltName=%s" "${SAN}")
+  else
+    openssl x509 -req -CAkey "${CA_KEY_FULLPATH}" -CA "${CA_CERT_FULLPATH}" -in "${tmpreq}" -out "${CERT_FULLPATH}" -days "${CERT_VALIDITY}" -CAcreateserial
+  fi
+  rm -f "${tmpreq}"
+}
+
+function createServerKeystore () {
+  echo "Creating Server Keystore..."
+  local tmpstore
+  tmpstore=$(mktemp)
+  openssl pkcs12 -export -inkey "${KEY_FULLPATH}" -in "${CERT_FULLPATH}" -CAfile "${CA_CERT_FULLPATH}" -chain -name "${GROUP}" -out "${tmpstore}" -passout pass:
+  keytool -importkeystore -srckeystore "${tmpstore}" -srcstoretype pkcs12 -srcstorepass "" -destkeystore "${KEYSTORE_FULLPATH}" -deststorepass "${STORE_PASS}" -alias "${GROUP}" -noprompt
+  rm -f "${tmpstore}"
+}
+
+function showServerCert () {
+  openssl x509 -inform pem -noout -text < "${CERT_FULLPATH}"
+  ls -alh "${KEY_FULLPATH}"
+  ls -alh "${CERT_FULLPATH}"
+  ls -alh "${KEYSTORE_FULLPATH}"
+}
+
+function generateCert () {
+  initCert
+  cleanCert
+  createAndSignServerCert
+  createServerKeystore
+  showServerCert
+}
+
+function mainCert () {
+  parseCmdCert "$@"
+  local retval=$?
+  if [ $retval != 0 ]; then
+      exit $retval
+  fi
+  generateCert
+}
+
+mainCert "$@"

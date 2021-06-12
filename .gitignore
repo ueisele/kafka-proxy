@@ -11,3 +11,4 @@ project/plugins/project/
 javacore*
 heapdump*
 Snap.*
+logs/

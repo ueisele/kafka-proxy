@@ -57,3 +57,7 @@ Show Certificate
 ```
 cat target/ssl/server-certsigned | openssl x509 -inform pem -noout -text
 ```
+
+## SBT Wrapper
+
+curl -Ls https://git.io/sbt > sbtx && chmod 0755 sbtx

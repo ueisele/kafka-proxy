@@ -1,0 +1,15 @@
+{% set excluded_props = ['KAFKA_PROXY_VERSION',
+                         'KAFKA_PROXY_HEAP_OPTS'
+                         'KAFKA_PROXY_LOG4J_OPTS',
+                         'KAFKA_PROXY_OPTS',
+                         'KAFKA_PROXY_JMX_OPTS',
+                         'KAFKA_PROXY_JVM_PERFORMANCE_OPTS',
+                         'KAFKA_PROXY_GC_LOG_OPTS',
+                         'KAFKA_PROXY_LOG4J_ROOT_LOGLEVEL',
+                         'KAFKA_PROXY_LOG4J_LOGGERS']
+-%}
+
+{% set kafka_proxy_props = env_to_props('KAFKA_PROXY_', '', exclude=excluded_props) -%}
+{% for name, value in kafka_proxy_props.items() -%}
+{{name}}={{value}}
+{% endfor -%}

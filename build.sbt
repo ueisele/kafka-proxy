@@ -26,12 +26,10 @@ libraryDependencies ++= Seq(
 
 val proxyMainClass = "net.uweeisele.kafka.proxy.KafkaProxyStartable"
 
-Compile / run / mainClass := Some(proxyMainClass)
-Compile / packageBin / mainClass := Some(proxyMainClass)
-
-packageBin / packageOptions += Package.ManifestAttributes( "Multi-Release" -> "true" )
+Compile / mainClass := Some(proxyMainClass)
 
 assembly / mainClass := Some(proxyMainClass)
+assembly / packageBin / packageOptions += Package.ManifestAttributes( "Multi-Release" -> "true" )
 assembly / assemblyMergeStrategy := {
   case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
   case _ => MergeStrategy.first

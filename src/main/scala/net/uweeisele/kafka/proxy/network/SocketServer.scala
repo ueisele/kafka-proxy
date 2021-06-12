@@ -34,7 +34,7 @@ class SocketServer(val config: KafkaProxyConfig,
    * start listening at this stage so that the bound port is known when this method completes
    * even when ephemeral ports are used. Acceptors and Processors are started if `startProcessingRequests`
    * is true. If not, acceptors and processors are only started when
-   * [[net.uweeisele.kafka.proxy.network.SocketServer#startProcessingRequests()]]
+   * [[net.uweeisele.kafka.proxy.network.SocketServer.startedProcessingRequests()]]
    * is invoked. Delayed starting of acceptors and processors is used to delay processing client
    * connections until server is fully initialized, e.g. to ensure that all credentials have been
    * loaded before authentications are performed. Incoming connections on this server are processed

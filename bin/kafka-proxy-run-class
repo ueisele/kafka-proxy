@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+
+if [ $# -lt 1 ];
+then
+  echo "USAGE: $0 [-daemon] [-name servicename] classname [opts]"
+  exit 1
+fi
+
+base_dir=$(dirname $0)/..
+
+if [ -z "$SCALA_VERSION" ]; then
+  SCALA_VERSION=2.13.6
+  if [[ -f "$base_dir/build.sbt" ]]; then
+    SCALA_VERSION=$(sed -rn 's/^scalaVersion.*:=.*"(.+)"/\1/p' "$base_dir/build.sbt")
+  fi
+fi
+
+if [ -z "$SCALA_BINARY_VERSION" ]; then
+  SCALA_BINARY_VERSION=$(echo $SCALA_VERSION | cut -f 1-2 -d '.')
+fi
+
+if [ -d "${base_dir}/libs" ]; then
+  CLASSPATH="$CLASSPATH:${base_dir}/libs/*"
+elif [ -d "${base_dir}/target/scala-${SCALA_BINARY_VERSION}" ]; then
+  CLASSPATH="$CLASSPATH:${base_dir}/target/scala-${SCALA_BINARY_VERSION}/*"
+fi
+
+if [ -z "$CLASSPATH" ] ; then
+  echo "Classpath is empty."
+  exit 1
+fi
+
+# JMX settings
+if [ -z "$KAFKA_PROXY_JMX_OPTS" ]; then
+  KAFKA_PROXY_JMX_OPTS="-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false  -Dcom.sun.management.jmxremote.ssl=false "
+fi
+
+# JMX port to use
+if [  $JMX_PORT ]; then
+  KAFKA_PROXY_JMX_OPTS="$KAFKA_PROXY_JMX_OPTS -Dcom.sun.management.jmxremote.port=$JMX_PORT "
+fi
+
+# Log4j settings
+if [ -z "$KAFKA_PROXY_LOG4J_OPTS" ]; then
+  # Log to console. This is a tool.
+  LOG4J_FILE="$base_dir/config/log4j2.yml"
+  KAFKA_PROXY_LOG4J_OPTS="-Dlog4j.configurationFile=${LOG4J_FILE}"
+fi
+
+# Generic jvm settings you want to add
+if [ -z "$KAFKA_PROXY_OPTS" ]; then
+  KAFKA_PROXY_OPTS=""
+fi
+
+# Set Debug options if enabled
+if [ "x$KAFKA_PROXY_DEBUG" != "x" ]; then
+
+    # Use default ports
+    DEFAULT_JAVA_DEBUG_PORT="5005"
+
+    if [ -z "$JAVA_DEBUG_PORT" ]; then
+        JAVA_DEBUG_PORT="$DEFAULT_JAVA_DEBUG_PORT"
+    fi
+
+    # Use the defaults if JAVA_DEBUG_OPTS was not set
+    DEFAULT_JAVA_DEBUG_OPTS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=${DEBUG_SUSPEND_FLAG:-n},address=$JAVA_DEBUG_PORT"
+    if [ -z "$JAVA_DEBUG_OPTS" ]; then
+        JAVA_DEBUG_OPTS="$DEFAULT_JAVA_DEBUG_OPTS"
+    fi
+
+    echo "Enabling Java debug options: $JAVA_DEBUG_OPTS"
+    KAFKA_PROXY_OPTS="$JAVA_DEBUG_OPTS $KAFKA_PROXY_OPTS"
+fi
+
+# Which java to use
+if [ -z "$JAVA_HOME" ]; then
+  JAVA="java"
+else
+  JAVA="$JAVA_HOME/bin/java"
+fi
+
+# Memory options
+if [ -z "$KAFKA_PROXY_HEAP_OPTS" ]; then
+  KAFKA_PROXY_HEAP_OPTS="-Xmx256M"
+fi
+
+# JVM performance options
+# MaxInlineLevel=15 is the default since JDK 14 and can be removed once older JDKs are no longer supported
+if [ -z "$KAFKA_PROXY_JVM_PERFORMANCE_OPTS" ]; then
+  KAFKA_PROXY_JVM_PERFORMANCE_OPTS="-server -XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent -XX:MaxInlineLevel=15 -Djava.awt.headless=true"
+fi
+
+while [ $# -gt 0 ]; do
+  COMMAND=$1
+  case $COMMAND in
+    -name)
+      DAEMON_NAME=$2
+      # Log directory to use
+      if [ "x$LOG_DIR" = "x" ]; then
+        LOG_DIR="$base_dir/logs"
+      fi
+      # create logs directory
+      if [ ! -d "$LOG_DIR" ]; then
+        mkdir -p "$LOG_DIR"
+      fi
+      CONSOLE_OUTPUT_FILE=$LOG_DIR/$DAEMON_NAME.out
+      shift 2
+      ;;
+    -daemon)
+      DAEMON_MODE="true"
+      shift
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+# Remove a possible colon prefix from the classpath (happens at lines like `CLASSPATH="$CLASSPATH:$file"` when CLASSPATH is blank)
+# Syntax used on the right side is native Bash string manipulation; for more details see
+# http://tldp.org/LDP/abs/html/string-manipulation.html, specifically the section titled "Substring Removal"
+CLASSPATH=${CLASSPATH#:}
+
+# Launch mode
+if [ "x$DAEMON_MODE" = "xtrue" ]; then
+  nohup "$JAVA" $KAFKA_PROXY_HEAP_OPTS $KAFKA_PROXY_JVM_PERFORMANCE_OPTS $KAFKA_PROXY_JMX_OPTS $KAFKA_PROXY_LOG4J_OPTS -cp "$CLASSPATH" $KAFKA_PROXY_OPTS "$@" > "$CONSOLE_OUTPUT_FILE" 2>&1 < /dev/null &
+else
+  exec "$JAVA" $KAFKA_PROXY_HEAP_OPTS $KAFKA_PROXY_JVM_PERFORMANCE_OPTS $KAFKA_PROXY_JMX_OPTS $KAFKA_PROXY_LOG4J_OPTS -cp "$CLASSPATH" $KAFKA_PROXY_OPTS "$@"
+fi

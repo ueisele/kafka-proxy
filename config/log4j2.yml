@@ -27,3 +27,8 @@ Configuration:
         additivity: false
         AppenderRef:
           ref: STDOUT
+      - name: org.apache.kafka.common.network.SslTransportLayer
+        level: info
+        additivity: false
+        AppenderRef:
+          ref: STDOUT

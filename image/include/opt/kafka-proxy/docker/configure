@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+. /opt/kafka-proxy/docker/bash-config
+
+dub ensure KAFKA_PROXY_LISTENERS
+dub ensure KAFKA_PROXY_TARGETS
+dub ensure KAFKA_PROXY_ROUTES
+
+dub path /opt/kafka-proxy/config writable
+dub path /opt/kafka-proxy/secrets writable
+
+# Set if LISTENERS has SSL:// or SASL_SSL:// endpoints.
+if [[ $KAFKA_PROXY_LISTENERS == *"SSL://"* ]]
+then
+  echo "SSL is enabled."
+
+  dub ensure KAFKA_PROXY_SSL_KEYSTORE_FILENAME
+  export KAFKA_PROXY_SSL_KEYSTORE_LOCATION="/opt/kafka-proxy/secrets/$KAFKA_PROXY_SSL_KEYSTORE_FILENAME"
+  dub path "$KAFKA_PROXY_SSL_KEYSTORE_LOCATION" exists
+
+  if [[ -n "${KAFKA_PROXY_SSL_KEY_CREDENTIALS-}" ]]
+  then
+    KAFKA_PROXY_SSL_KEY_CREDENTIALS_LOCATION="/opt/kafka-proxy/secrets/$KAFKA_PROXY_SSL_KEY_CREDENTIALS"
+    dub path "$KAFKA_PROXY_SSL_KEY_CREDENTIALS_LOCATION" exists
+    export KAFKA_PROXY_SSL_KEY_PASSWORD
+    KAFKA_PROXY_SSL_KEY_PASSWORD=$(cat "$KAFKA_PROXY_SSL_KEY_CREDENTIALS_LOCATION")
+  fi
+
+  dub ensure KAFKA_PROXY_SSL_KEYSTORE_CREDENTIALS
+  KAFKA_PROXY_SSL_KEYSTORE_CREDENTIALS_LOCATION="/opt/kafka-proxy/secrets/$KAFKA_PROXY_SSL_KEYSTORE_CREDENTIALS"
+  dub path "$KAFKA_PROXY_SSL_KEYSTORE_CREDENTIALS_LOCATION" exists
+  export KAFKA_PROXY_SSL_KEYSTORE_PASSWORD
+  KAFKA_PROXY_SSL_KEYSTORE_PASSWORD=$(cat "$KAFKA_PROXY_SSL_KEYSTORE_CREDENTIALS_LOCATION")
+
+  if [[ -n "${KAFKA_PROXY_SSL_CLIENT_AUTH-}" ]] && ( [[ $KAFKA_PROXY_SSL_CLIENT_AUTH == *"required"* ]] || [[ $KAFKA_PROXY_SSL_CLIENT_AUTH == *"requested"* ]] )
+  then
+      dub ensure KAFKA_PROXY_SSL_TRUSTSTORE_FILENAME
+      export KAFKA_PROXY_SSL_TRUSTSTORE_LOCATION="/opt/kafka-proxy/secrets/$KAFKA_PROXY_SSL_TRUSTSTORE_FILENAME"
+      dub path "$KAFKA_PROXY_SSL_TRUSTSTORE_LOCATION" exists
+
+      dub ensure KAFKA_PROXY_SSL_TRUSTSTORE_CREDENTIALS
+      KAFKA_PROXY_SSL_TRUSTSTORE_CREDENTIALS_LOCATION="/opt/kafka-proxy/secrets/$KAFKA_PROXY_SSL_TRUSTSTORE_CREDENTIALS"
+      dub path "$KAFKA_PROXY_SSL_TRUSTSTORE_CREDENTIALS_LOCATION" exists
+      export KAFKA_PROXY_SSL_TRUSTSTORE_PASSWORD
+      KAFKA_PROXY_SSL_TRUSTSTORE_PASSWORD=$(cat "$KAFKA_PROXY_SSL_TRUSTSTORE_CREDENTIALS_LOCATION")
+  fi
+  
+fi
+
+if [[ -n "${KAFKA_PROXY_JMX_OPTS-}" ]]
+then
+  if [[ ! $KAFKA_PROXY_JMX_OPTS == *"com.sun.management.jmxremote.rmi.port"*  ]]
+  then
+    echo "KAFKA_PROXY_OPTS should contain 'com.sun.management.jmxremote.rmi.port' property. It is required for accessing the JMX metrics externally."
+  fi
+fi
+
+dub template "/opt/kafka-proxy/docker/proxy.properties.template" "/opt/kafka-proxy/config/proxy.properties"
+dub template "/opt/kafka-proxy/docker/log4j2.yml.template" "/opt/kafka-proxy/config/log4j2.yml"

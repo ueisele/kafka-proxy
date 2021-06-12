@@ -1,0 +1,3 @@
+= L7 Proxy (SSL) with KRaft Kafka 2.8 Cluster (PLAINTEXT)
+
+The Kafka image with KRaft support is developed at: git@github.com:ueisele/kafka-images.git
