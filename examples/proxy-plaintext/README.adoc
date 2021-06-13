@@ -1,0 +1,58 @@
+= L7 Proxy with KRaft Kafka 2.8 Cluster (PLAINTEXT)
+
+Example with a L7 Kafka Proxy and a Kafka 2.8 Cluster with KRaft using plaintext.
+The Kafka image with KRaft support is developed at: https://github.com/ueisele/kafka-images
+
+== Quick Start
+
+.Start Kafka Cluster and Kafka Proxy
+[source,bash]
+----
+docker-compse up
+----
+
+Open another window and test connectivity.
+
+.Connect to Docker container with Kafka Cli
+[source,bash]
+----
+docker-compose exec kafka-cli bash
+----
+
+.Play around with Kafka Cli
+[source,bash]
+----
+kafka-topics.sh --bootstrap-server kafka-proxy-l7:9092 --list
+kafka-topics.sh --bootstrap-server kafka-proxy-l7:9092 --create --topic test --replication-factor 3 --partitions 3
+kafka-topics.sh --bootstrap-server kafka-proxy-l7:9092 --describe
+
+kafka-console-producer.sh --bootstrap-server kafka-proxy-l7:9092 --topic test <<EOF
+Hello
+Kafka
+:)
+EOF
+
+kafka-console-consumer.sh --bootstrap-server kafka-proxy-l7:9092 --topic test --from-beginning --max-messages 3
+----
+
+The example also exposes endpoints which enables connection from local host. If you have installed the Kafka Cli on your machine, the Kafka Cluster can be accessed through the proxy by connection to _127.0.0.1:19092_.
+
+.Play around with Kafka Cli on your local machine.
+[source,bash]
+----
+kafka-topics.sh --bootstrap-server 127.0.0.1:19092 --list
+----
+
+You can also use kafkacat cli tool to play around.
+
+.Connect to Docker container with Kafka Cli
+[source,bash]
+----
+docker-compose exec kafkacat bash
+----
+
+.Request metadata with kafkacat tool
+[source,bash]
+----
+kafkacat -b kafka-proxy-l7:9092 -L
+----

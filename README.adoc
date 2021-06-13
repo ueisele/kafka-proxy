@@ -3,13 +3,7 @@
 == Quick Start
 
 This repository contains example deployments for the Kafka Proxy combined with a Kafka Cluster.
-In order to get started just navigate to link:examples/proxy-ssl[] and run the following commands.
-
-.Generate certificates and configuration
-[source,bash]
-----
-./init
-----
+In order to get started just navigate to link:examples/proxy-plaintext/[] and run the following command:
 
 .Start Kafka Cluster and Kafka Proxy
 [source,bash]
@@ -17,7 +11,7 @@ In order to get started just navigate to link:examples/proxy-ssl[] and run the f
 docker-compse up
 ----
 
-Find additional information at link:examples/proxy-ssl/README.adoc[].
+Find additional information at link:examples/proxy-plaintext/README.adoc[].
 
 == Build and Run
 

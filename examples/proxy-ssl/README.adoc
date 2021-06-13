@@ -29,6 +29,16 @@ docker-compose exec kafka-cli bash
 [source,bash]
 ----
 kafka-topics.sh --command-config config/client.properties --bootstrap-server kafka-proxy-l7:9092 --list
+kafka-topics.sh --command-config config/client.properties --bootstrap-server kafka-proxy-l7:9092 --create --topic test --replication-factor 3 --partitions 3
+kafka-topics.sh --command-config config/client.properties --bootstrap-server kafka-proxy-l7:9092 --describe
+
+kafka-console-producer.sh --producer.config config/client.properties --bootstrap-server kafka-proxy-l7:9092 --topic test <<EOF
+Hello
+Kafka
+:)
+EOF
+
+kafka-console-consumer.sh --consumer.config config/client.properties --bootstrap-server kafka-proxy-l7:9092 --topic test --from-beginning --max-messages 3
 ----
 
 The example also exposes endpoints which enables connection from local host. If you have installed the Kafka Cli on your machine, the Kafka Cluster can be accessed through the proxy by connection to _127.0.0.1:19092_.
@@ -37,6 +47,20 @@ The example also exposes endpoints which enables connection from local host. If 
 [source,bash]
 ----
 kafka-topics.sh --command-config target/client.properties --bootstrap-server 127.0.0.1:19092 --list
+----
+
+You can also use kafkacat cli tool to play around.
+
+.Connect to Docker container with Kafka Cli
+[source,bash]
+----
+docker-compose exec kafkacat bash
+----
+
+.Request metadata with kafkacat tool
+[source,bash]
+----
+kafkacat -b kafka-proxy-l7:9092 -L -X security.protocol=ssl -X ssl.ca.location=config/certs/kafka-proxy.ca.cert.pem
 ----
 
 == Check Certificate

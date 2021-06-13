@@ -30,17 +30,12 @@ services:
       - 19092:19092
       - 19093:19093
       - 19094:19094
-    volumes:
-      - ./target/certs:/opt/kafka-proxy/secrets/
     environment:
-      KAFKA_PROXY_LISTENERS: INTERNAL_SSL://0.0.0.0:9092,0.0.0.0:9093,0.0.0.0:9094;EXTERNAL_SSL://0.0.0.0:19092,0.0.0.0:19093,0.0.0.0:19094
-      KAFKA_PROXY_ADVERTISED_LISTENERS: INTERNAL_SSL://kafka-proxy-l7.${DOMAIN_NAME}:9092,kafka-proxy-l7.${DOMAIN_NAME}:9093,kafka-proxy-l7.${DOMAIN_NAME}:9094;EXTERNAL_SSL://127.0.0.1:19092,127.0.0.1:19093,127.0.0.1:19094
-      KAFKA_PROXY_SSL_KEYSTORE_TYPE: PEM
-      KAFKA_PROXY_SSL_KEYSTORE_FILENAME: kafka-proxy.proxy.keystore.pem
-      KAFKA_PROXY_SSL_KEY_CREDENTIALS: kafka-proxy.proxy.key.credentials
+      KAFKA_PROXY_LISTENERS: INTERNAL://0.0.0.0:9092,0.0.0.0:9093,0.0.0.0:9094;EXTERNAL://0.0.0.0:19092,0.0.0.0:19093,0.0.0.0:19094
+      KAFKA_PROXY_ADVERTISED_LISTENERS: INTERNAL://kafka-proxy-l7.${DOMAIN_NAME}:9092,kafka-proxy-l7.${DOMAIN_NAME}:9093,kafka-proxy-l7.${DOMAIN_NAME}:9094;EXTERNAL://127.0.0.1:19092,127.0.0.1:19093,127.0.0.1:19094
       KAFKA_PROXY_TARGETS: PLAINTEXT://kafka-broker1:9092,kafka-broker2:9092,kafka-broker3:9092
-      KAFKA_PROXY_ROUTES: INTERNAL_SSL->PLAINTEXT,EXTERNAL_SSL->PLAINTEXT
-      KAFKA_PROXY_LISTENER_SECURITY_PROTOCOL_MAP: EXTERNAL_SSL:SSL,INTERNAL_SSL:SSL,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL
+      KAFKA_PROXY_ROUTES: INTERNAL->PLAINTEXT,EXTERNAL->PLAINTEXT
+      KAFKA_PROXY_LISTENER_SECURITY_PROTOCOL_MAP: EXTERNAL:PLAINTEXT,INTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL
 
   #############################################################
   # Kafka Controller                                          #
@@ -183,9 +178,6 @@ services:
   kafka-cli:
     image: ueisele/apache-kafka-server:${KAFKA_VERSION}
     hostname: kafka-cli
-    working_dir: /work
-    volumes:
-      - ./target:/work/config
     entrypoint: /bin/bash
     tty: true
 
@@ -193,9 +185,6 @@ services:
     image: confluentinc/cp-kafkacat:6.2.0
     hostname: kafkacat
     entrypoint: /bin/bash
-    working_dir: /work
-    volumes:
-      - ./target:/work/config
     tty: true
 
 volumes:
