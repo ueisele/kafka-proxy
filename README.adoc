@@ -1,0 +1,34 @@
+= PoC: L7 Kafka Proxy
+
+== Quick Start
+
+This repository contains example deployments for the Kafka Proxy combined with a Kafka Cluster.
+In order to get started just navigate to link:examples/proxy-ssl[] and run the following commands.
+
+.Generate certificates and configuration
+[source,bash]
+----
+./init
+----
+
+.Start Kafka Cluster and Kafka Proxy
+[source,bash]
+----
+docker-compse up
+----
+
+Find additional information at link:examples/proxy-ssl/README.adoc[].
+
+== Build and Run
+
+.Build the Kafka Proxy
+[source,bash]
+----
+sbt +assembly
+----
+
+.Run
+[source,bash]
+----
+./bin/kafka-proxy-start config/proxy.properties
+----

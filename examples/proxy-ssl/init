@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -e
+EXAMPLE_DIR="$(readlink -f "$(dirname ${BASH_SOURCE[0]})")"
+ROOT="$(readlink -f "${EXAMPLE_DIR}/../..")"
+
+source "${EXAMPLE_DIR}/.env"
+source "${ROOT}/examples/generate-ca"
+source "${ROOT}/examples/generate-cert"
+source "${ROOT}/examples/btpl"
+
+export TARGET_DIR="${EXAMPLE_DIR}/target/certs"
+export GROUP=kafka-proxy
+export CA_KEY_PASS="cakeypass"
+export CERT_KEY_PASS="certkeypass"
+generateCA
+NAME=proxy CERT_SAN="IP:127.0.0.1,DNS:localhost,DNS:kafka-proxy-l7,DNS:kafka-proxy-l7.${DOMAIN_NAME}" generateCert
+
+btpl "${EXAMPLE_DIR}/client.properties.btpl" "${EXAMPLE_DIR}/target/client.properties"

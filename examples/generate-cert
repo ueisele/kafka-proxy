@@ -6,8 +6,9 @@ PROJECT_ROOT="$(readlink -f "${SCRIPT_DIR}/..")"
 DEFAULT_TARGET_DIR="${PROJECT_ROOT}/target/certs"
 DEFAULT_GROUP="kafka-proxy"
 DEFAULT_NAME="server"
-DEFAULT_STORE_PASS="changeit"
-DEFAULT_ALG="RSA"
+DEFAULT_CA_KEY_PASS="changeit"
+DEFAULT_CERT_KEY_PASS="changeit"
+DEFAULT_CERT_ALG="rsa:3086"
 DEFAULT_CERT_DNAME="/C=DE/ST=Hessen/L=Frankfurt/O=Uwe Eisele/CN=Kafka Proxy"
 DEFAULT_CERT_VALIDITY=365
 
@@ -18,11 +19,12 @@ function usageCert () {
     echo "         --target-dir \"\$(pwd)/target/certs\" \\"
     echo "         --group kafka-proxy \\"
     echo "         --name server \\"
-    echo "         --store-pass changeit \\"
-    echo "         --alg RSA \\"
+    echo "         --ca-key-pass changeit \\"
+    echo "         --cert-key-pass changeit \\"
+    echo "         --cert-alg rsa:3086 \\"
     echo "         --cert-dname \"/C=DE/ST=Hessen/L=Frankfurt/O=Uwe Eisele/CN=Kafka Proxy\" \\"
     echo "         --cert-validity 365 \\"
-    echo "         --san \"IP:127.0.0.1,DNS:localhost\""
+    echo "         --cert-san \"IP:127.0.0.1,DNS:localhost\""
     echo
     return 1
 }
@@ -73,15 +75,28 @@ function parseCmdCert () {
                         ;;
                 esac
                 ;;
-            --store-pass)
+            --ca-key-pass)
                 shift
                 case "$1" in
                     ""|--*)
-                        usageCert "Requires store password"
+                        usageCert "Requires ca key password"
                         return 1
                         ;;
                     *)
-                        STORE_PASS="$1"
+                        CA_KEY_PASS="$1"
+                        shift
+                        ;;
+                esac
+                ;;
+            --cert-key-pass)
+                shift
+                case "$1" in
+                    ""|--*)
+                        usageCert "Requires key password"
+                        return 1
+                        ;;
+                    *)
+                        CERT_KEY_PASS="$1"
                         shift
                         ;;
                 esac
@@ -99,7 +114,7 @@ function parseCmdCert () {
                         ;;
                 esac
                 ;;
-            --san)
+            --cert-san)
                 shift
                 case "$1" in
                     ""|--*)
@@ -107,7 +122,7 @@ function parseCmdCert () {
                         return 1
                         ;;
                     *)
-                        SAN="$1"
+                        CERT_SAN="$1"
                         shift
                         ;;
                 esac
@@ -125,7 +140,7 @@ function parseCmdCert () {
                         ;;
                 esac
                 ;;
-            --alg)
+            --cert-alg)
                 shift
                 case "$1" in
                     ""|--*)
@@ -133,7 +148,7 @@ function parseCmdCert () {
                         return 1
                         ;;
                     *)
-                        ALG="$1"
+                        CERT_ALG="$1"
                         shift
                         ;;
                 esac
@@ -157,8 +172,14 @@ function initCert () {
     if [ -z "${NAME}" ]; then
         NAME="$DEFAULT_NAME"
     fi
-    if [ -z "${STORE_PASS}" ]; then
-        STORE_PASS="$DEFAULT_STORE_PASS"
+    if [ -z "${CA_KEY_PASS}" ]; then
+        CA_KEY_PASS="$DEFAULT_CA_KEY_PASS"
+    fi
+    if [ -z "${CERT_KEY_PASS}" ]; then
+        CERT_KEY_PASS="$DEFAULT_CERT_KEY_PASS"
+    fi
+    if [ -z "${CERT_ALG}" ]; then
+        CERT_ALG="$DEFAULT_CERT_ALG"
     fi
     if [ -z "${CERT_DNAME}" ]; then
         CERT_DNAME="$DEFAULT_CERT_DNAME"
@@ -166,58 +187,65 @@ function initCert () {
     if [ -z "${CERT_VALIDITY}" ]; then
         CERT_VALIDITY="$DEFAULT_CERT_VALIDITY"
     fi
-    if [ -z "${ALG}" ]; then
-        ALG="$DEFAULT_ALG"
-    fi
     CA_KEY_FULLPATH="${TARGET_DIR}/${GROUP}.ca.key.pem"
     CA_CERT_FULLPATH="${TARGET_DIR}/${GROUP}.ca.cert.pem"
     KEY_FULLPATH="${TARGET_DIR}/${GROUP}.${NAME}.key.pem"
+    KEY_PKCS8_FULLPATH="${TARGET_DIR}/${GROUP}.${NAME}.key-pkcs8.pem"
+    KEY_CREDENTIALS_FULLPATH="${TARGET_DIR}/${GROUP}.${NAME}.key.credentials"
     CERT_FULLPATH="${TARGET_DIR}/${GROUP}.${NAME}.cert.pem"
-    KEYSTORE_FULLPATH="${TARGET_DIR}/${GROUP}.${NAME}.keystore.jks"
+    CERT_CHAIN_FULLPATH="${TARGET_DIR}/${GROUP}.${NAME}.chain.pem"
+    KEYSTORE_PEM_FULLPATH="${TARGET_DIR}/${GROUP}.${NAME}.keystore.pem"
 }
 
 function cleanCert () {
   mkdir -p "${TARGET_DIR}"
   rm -f "${KEY_FULLPATH}"
+  rm -f "${KEY_PKCS8_FULLPATH}"
+  rm -f "${KEY_CREDENTIALS_FULLPATH}"
   rm -f "${CERT_FULLPATH}"
-  rm -f "${KEYSTORE_FULLPATH}"
+  rm -f "${CERT_CHAIN_FULLPATH}"
+  rm -f "${KEYSTORE_PEM_FULLPATH}"
 }
 
-function createAndSignServerCert () {
-  echo "Creating and Signing Server Certificate..."
+function createAndSignCert () {
+  echo "Creating Certificate..."
   local tmpreq
   tmpreq=$(mktemp)
-  openssl req -new -nodes -keyout "${KEY_FULLPATH}" -out "${tmpreq}" -subj "${CERT_DNAME}"
-  if [ -n "${SAN}" ]; then
-    openssl x509 -req -CAkey "${CA_KEY_FULLPATH}" -CA "${CA_CERT_FULLPATH}" -in "${tmpreq}" -out "${CERT_FULLPATH}" -days "${CERT_VALIDITY}" -CAcreateserial -extfile <(printf "subjectAltName=%s" "${SAN}")
+  openssl req -newkey "${CERT_ALG}" -subj "${CERT_DNAME}" -keyout "${KEY_FULLPATH}" -out "${tmpreq}" -passout "pass:${CERT_KEY_PASS}"
+  #convert the key to PKCS8, otherwise kafka/java cannot read it
+  openssl pkcs8 -topk8 -inform pem -in "${KEY_FULLPATH}" -passin "pass:${CERT_KEY_PASS}" -out "${KEY_PKCS8_FULLPATH}" -outform pem -v1 PBE-SHA1-3DES -passout "pass:${CERT_KEY_PASS}"
+  echo "${CERT_KEY_PASS}" > "${KEY_CREDENTIALS_FULLPATH}"
+  echo "Signing Certificate..."
+  if [ -n "${CERT_SAN}" ]; then
+    openssl x509 -req -CAkey "${CA_KEY_FULLPATH}" -passin "pass:${CA_KEY_PASS}" -CA "${CA_CERT_FULLPATH}" -in "${tmpreq}" -out "${CERT_FULLPATH}" -days "${CERT_VALIDITY}" -CAcreateserial -extfile <(printf "subjectAltName=%s" "${CERT_SAN}")
   else
-    openssl x509 -req -CAkey "${CA_KEY_FULLPATH}" -CA "${CA_CERT_FULLPATH}" -in "${tmpreq}" -out "${CERT_FULLPATH}" -days "${CERT_VALIDITY}" -CAcreateserial
+    openssl x509 -req -CAkey "${CA_KEY_FULLPATH}" -passin "pass:${CA_KEY_PASS}" -CA "${CA_CERT_FULLPATH}" -in "${tmpreq}" -out "${CERT_FULLPATH}" -days "${CERT_VALIDITY}" -CAcreateserial
   fi
   rm -f "${tmpreq}"
 }
 
-function createServerKeystore () {
-  echo "Creating Server Keystore..."
-  local tmpstore
-  tmpstore=$(mktemp)
-  openssl pkcs12 -export -inkey "${KEY_FULLPATH}" -in "${CERT_FULLPATH}" -CAfile "${CA_CERT_FULLPATH}" -chain -name "${GROUP}" -out "${tmpstore}" -passout pass:
-  keytool -importkeystore -srckeystore "${tmpstore}" -srcstoretype pkcs12 -srcstorepass "" -destkeystore "${KEYSTORE_FULLPATH}" -deststorepass "${STORE_PASS}" -alias "${GROUP}" -noprompt
-  rm -f "${tmpstore}"
+function createChain () {
+  echo "Creating Chain..."
+  cat "${CERT_FULLPATH}" "${CA_CERT_FULLPATH}" > "${CERT_CHAIN_FULLPATH}"
 }
 
-function showServerCert () {
+function createKeystorePem () {
+  echo "Creating PEM Keystore..."
+  cat "${KEY_PKCS8_FULLPATH}" "${CERT_CHAIN_FULLPATH}" > "${KEYSTORE_PEM_FULLPATH}"
+}
+
+function showCert () {
   openssl x509 -inform pem -noout -text < "${CERT_FULLPATH}"
-  ls -alh "${KEY_FULLPATH}"
-  ls -alh "${CERT_FULLPATH}"
-  ls -alh "${KEYSTORE_FULLPATH}"
+  ls -alh "${TARGET_DIR}/${GROUP}"*
 }
 
 function generateCert () {
   initCert
   cleanCert
-  createAndSignServerCert
-  createServerKeystore
-  showServerCert
+  createAndSignCert
+  createChain
+  createKeystorePem
+  showCert
 }
 
 function mainCert () {
@@ -229,4 +257,6 @@ function mainCert () {
   generateCert
 }
 
-mainCert "$@"
+if [ "${BASH_SOURCE[0]}" == "$0" ]; then
+  mainCert "$@"
+fi

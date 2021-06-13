@@ -1,3 +1,48 @@
 = L7 Proxy (SSL) with KRaft Kafka 2.8 Cluster (PLAINTEXT)
 
-The Kafka image with KRaft support is developed at: git@github.com:ueisele/kafka-images.git
+Example with a L7 Kafka Proxy with client side SSL and a Kafka 2.8 Cluster with KRaft using plaintext.
+The Kafka image with KRaft support is developed at: https://github.com/ueisele/kafka-images
+
+== Quick Start
+
+.Generate certificates and configuration
+[source,bash]
+----
+./init
+----
+
+.Start Kafka Cluster and Kafka Proxy
+[source,bash]
+----
+docker-compse up
+----
+
+Open another window and test connectivity.
+
+.Connect to Docker container with Kafka Cli
+[source,bash]
+----
+docker-compose exec kafka-cli bash
+----
+
+.Play around with Kafka Cli
+[source,bash]
+----
+kafka-topics.sh --command-config config/client.properties --bootstrap-server kafka-proxy-l7:9092 --list
+----
+
+The example also exposes endpoints which enables connection from local host. If you have installed the Kafka Cli on your machine, the Kafka Cluster can be accessed through the proxy by connection to _127.0.0.1:19092_.
+
+.Play around with Kafka Cli on your local machine.
+[source,bash]
+----
+kafka-topics.sh --command-config target/client.properties --bootstrap-server 127.0.0.1:19092 --list
+----
+
+== Check Certificate
+
+.Check
+[source,bash]
+----
+openssl s_client -CAfile target/certs/kafka-proxy.ca.cert.pem -showcerts -connect localhost:19092
+----

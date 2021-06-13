@@ -39,7 +39,7 @@ ENV LANG="C.UTF-8"
 ENV ZULU_OPENJDK="zulu16-jre-headless"
 ENV JAVA_HOME="/usr/lib/jvm/zulu16"
 
-ENV PYTHON_VERSION="36-3.6.8"
+ENV PYTHON_VERSION="38-3.8.6"
 
 RUN microdnf install -y dnf \
     && dnf update -y \

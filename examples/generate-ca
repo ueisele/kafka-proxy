@@ -5,8 +5,8 @@ PROJECT_ROOT="$(readlink -f "${SCRIPT_DIR}/..")"
 
 DEFAULT_TARGET_DIR="${PROJECT_ROOT}/target/certs"
 DEFAULT_GROUP="kafka-proxy"
-DEFAULT_STORE_PASS="changeit"
-DEFAULT_ALG="RSA"
+DEFAULT_CA_KEY_PASS="changeit"
+DEFAULT_CA_ALG="rsa:3086"
 DEFAULT_CA_DNAME="/C=DE/ST=Hessen/L=Frankfurt/O=Uwe Eisele/CN=Uwe Eisele CA"
 DEFAULT_CA_VALIDITY=3650
 
@@ -16,8 +16,8 @@ function usageCA () {
     echo "Usage: $0 \\"
     echo "         --target-dir \"\$(pwd)/target/certs\" \\"
     echo "         --group kafka-proxy \\"
-    echo "         --store-pass changeit \\"
-    echo "         --alg RSA \\"
+    echo "         --ca-key-pass changeit \\"
+    echo "         --ca-alg rsa:3086 \\"
     echo "         --ca-dname \"/C=DE/ST=Hessen/L=Frankfurt/O=Uwe Eisele/CN=Uwe Eisele CA\" \\"
     echo "         --ca-validity 3650"
     echo
@@ -57,15 +57,15 @@ function parseCmdCA () {
                         ;;
                 esac
                 ;;
-            --store-pass)
+            --ca-key-pass)
                 shift
                 case "$1" in
                     ""|--*)
-                        usageCA "Requires store password"
+                        usageCA "Requires key password"
                         return 1
                         ;;
                     *)
-                        STORE_PASS="$1"
+                        CA_KEY_PASS="$1"
                         shift
                         ;;
                 esac
@@ -96,7 +96,7 @@ function parseCmdCA () {
                         ;;
                 esac
                 ;;
-            --alg)
+            --ca-alg)
                 shift
                 case "$1" in
                     ""|--*)
@@ -104,7 +104,7 @@ function parseCmdCA () {
                         return 1
                         ;;
                     *)
-                        ALG="$1"
+                        CA_ALG="$1"
                         shift
                         ;;
                 esac
@@ -125,8 +125,8 @@ function initCA () {
   if [ -z "${GROUP}" ]; then
       GROUP="$DEFAULT_GROUP"
   fi
-  if [ -z "${STORE_PASS}" ]; then
-      STORE_PASS="$DEFAULT_STORE_PASS"
+  if [ -z "${CA_KEY_PASS}" ]; then
+      CA_KEY_PASS="$DEFAULT_CA_KEY_PASS"
   fi
   if [ -z "${CA_DNAME}" ]; then
       CA_DNAME="$DEFAULT_CA_DNAME"
@@ -134,12 +134,11 @@ function initCA () {
   if [ -z "${CA_VALIDITY}" ]; then
       CA_VALIDITY="$DEFAULT_CA_VALIDITY"
   fi
-  if [ -z "${ALG}" ]; then
-      ALG="$DEFAULT_ALG"
+  if [ -z "${CA_ALG}" ]; then
+      CA_ALG="$DEFAULT_CA_ALG"
   fi
   CA_KEY_FULLPATH="${TARGET_DIR}/${GROUP}.ca.key.pem"
   CA_CERT_FULLPATH="${TARGET_DIR}/${GROUP}.ca.cert.pem"
-  TRUSTSTORE_FULLPATH="${TARGET_DIR}/${GROUP}.truststore.jks"
 }
 
 
@@ -147,31 +146,22 @@ function cleanCA () {
   mkdir -p "${TARGET_DIR}"
   rm -f "${CA_KEY_FULLPATH}"
   rm -f "${CA_CERT_FULLPATH}"
-  rm -f "${TRUSTSTORE_FULLPATH}"
 }
 
 function createCA () {
   echo "Creating CA..."
-  openssl req -new -nodes -x509 -keyout "${CA_KEY_FULLPATH}" -out "${CA_CERT_FULLPATH}" -days "${CA_VALIDITY}" -subj "${CA_DNAME}"
-}
-
-function createTruststore () {
-  echo "Creating Truststore..."
-  keytool -importcert -file "${CA_CERT_FULLPATH}" -alias "${GROUP}" -keystore "${TRUSTSTORE_FULLPATH}" -storepass "${STORE_PASS}" -noprompt
+  openssl req -newkey "${CA_ALG}" -x509 -days "${CA_VALIDITY}" -subj "${CA_DNAME}" -keyout "${CA_KEY_FULLPATH}" -out "${CA_CERT_FULLPATH}" -passout "pass:${CA_KEY_PASS}"
 }
 
 function showCA () {
   openssl x509 -inform pem -noout -text < "${CA_CERT_FULLPATH}"
-  ls -alh "${CA_KEY_FULLPATH}"
-  ls -alh "${CA_CERT_FULLPATH}"
-  ls -alh "${TRUSTSTORE_FULLPATH}"
+  ls -alh "${TARGET_DIR}/${GROUP}"*
 }
 
 function generateCA () {
   initCA
   cleanCA
   createCA
-  createTruststore
   showCA
 }
 
@@ -184,4 +174,6 @@ function mainCA () {
   generateCA
 }
 
-mainCA "$@"
+if [ "${BASH_SOURCE[0]}" == "$0" ]; then
+  mainCA "$@"
+fi

@@ -25,6 +25,7 @@ services:
       context: ../../
       dockerfile: image/Dockerfile
     restart: always
+    hostname: kafka-proxy-l7
     ports:
       - 19092:19092
       - 19093:19093
@@ -34,8 +35,9 @@ services:
     environment:
       KAFKA_PROXY_LISTENERS: INTERNAL_SSL://0.0.0.0:9092,0.0.0.0:9093,0.0.0.0:9094;EXTERNAL_SSL://0.0.0.0:19092,0.0.0.0:19093,0.0.0.0:19094
       KAFKA_PROXY_ADVERTISED_LISTENERS: INTERNAL_SSL://kafka-proxy-l7.${DOMAIN_NAME}:9092,kafka-proxy-l7.${DOMAIN_NAME}:9093,kafka-proxy-l7.${DOMAIN_NAME}:9094;EXTERNAL_SSL://127.0.0.1:19092,127.0.0.1:19093,127.0.0.1:19094
-      KAFKA_PROXY_SSL_KEYSTORE_FILENAME: kafka-proxy.proxy.keystore.jks
-      KAFKA_PROXY_SSL_KEYSTORE_CREDENTIALS: store.credentials
+      KAFKA_PROXY_SSL_KEYSTORE_TYPE: PEM
+      KAFKA_PROXY_SSL_KEYSTORE_FILENAME: kafka-proxy.proxy.keystore.pem
+      KAFKA_PROXY_SSL_KEY_CREDENTIALS: kafka-proxy.proxy.key.credentials
       KAFKA_PROXY_TARGETS: PLAINTEXT://kafka-broker1:9092,kafka-broker2:9092,kafka-broker3:9092
       KAFKA_PROXY_ROUTES: INTERNAL_SSL->PLAINTEXT,EXTERNAL_SSL->PLAINTEXT
       KAFKA_PROXY_LISTENER_SECURITY_PROTOCOL_MAP: EXTERNAL_SSL:SSL,INTERNAL_SSL:SSL,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL
@@ -46,6 +48,7 @@ services:
   kafka-controller1:
     image: ueisele/apache-kafka-server:${KAFKA_VERSION}
     restart: always
+    hostname: kafka-controller1
     volumes:
       - kafka-controller1:/opt/apache/kafka/data
     environment:
@@ -63,6 +66,7 @@ services:
   kafka-controller2:
     image: ueisele/apache-kafka-server:${KAFKA_VERSION}
     restart: always
+    hostname: kafka-controller2
     volumes:
       - kafka-controller2:/opt/apache/kafka/data
     environment:
@@ -80,6 +84,7 @@ services:
   kafka-controller3:
     image: ueisele/apache-kafka-server:${KAFKA_VERSION}
     restart: always
+    hostname: kafka-controller3
     volumes:
       - kafka-controller3:/opt/apache/kafka/data
     environment:
@@ -100,6 +105,7 @@ services:
   kafka-broker1:
     image: ueisele/apache-kafka-server:${KAFKA_VERSION}
     restart: always
+    hostname: kafka-broker1
     networks:
       default:
         aliases:
@@ -124,6 +130,7 @@ services:
   kafka-broker2:
     image: ueisele/apache-kafka-server:${KAFKA_VERSION}
     restart: always
+    hostname: kafka-broker2
     networks:
       default:
         aliases:
@@ -148,6 +155,7 @@ services:
   kafka-broker3:
     image: ueisele/apache-kafka-server:${KAFKA_VERSION}
     restart: always
+    hostname: kafka-broker3
     networks:
       default:
         aliases:
@@ -168,6 +176,18 @@ services:
       KAFKA_CONTROL_PLANE_LISTENER_NAME: CONTROLPANE
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER # (required in KRaft mode) The listeners used by the controller to define the security protocol.
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CLIENT:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLPANE:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
+
+  #############################################################
+  # Kafka CLI                                                 #
+  #############################################################
+  kafka-cli:
+    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    hostname: kafka-cli
+    working_dir: /work
+    volumes:
+      - ./target:/work/config
+    entrypoint: /bin/bash
+    tty: true
 
 volumes:
   kafka-controller1:
