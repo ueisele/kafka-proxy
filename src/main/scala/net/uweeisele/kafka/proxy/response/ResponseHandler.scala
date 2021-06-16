@@ -26,7 +26,7 @@ class ResponseHandler(val id: Int,
               requestChannel.sendResponse(response)
             } catch {
               case e: Throwable =>
-                logger.error(s"Exception when handling request on request handler $id", e)
+                logger.error(s"Exception when handling response on response handler $id", e)
                 requestChannel.sendResponse(new CloseConnectionResponse(response.request))
             }
 

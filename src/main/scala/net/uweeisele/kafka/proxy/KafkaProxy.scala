@@ -8,6 +8,7 @@ import net.uweeisele.kafka.proxy.forward.{RequestForwarder, RouteTable}
 import net.uweeisele.kafka.proxy.network.SocketServer
 import net.uweeisele.kafka.proxy.request.{ApiRequestHandlerChain, RequestHandlerPool}
 import net.uweeisele.kafka.proxy.response.{ApiResponseHandlerChain, ResponseHandlerPool}
+import org.apache.kafka.common.protocol.ApiKeys
 import org.apache.kafka.common.utils.Time
 
 import java.util.Properties
@@ -57,15 +58,22 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
         socketServer.addConnectionListener(requestForwarder)
 
         def apiRequestHandlerChain = new ApiRequestHandlerChain(Seq(
-          request => println(request),
-          requestForwarder))
+          request => { request.header.apiKey match {
+            case ApiKeys.FETCH => None
+            case ApiKeys.BROKER_HEARTBEAT => None
+            case _ => println(request)
+          }}, requestForwarder))
         requestHandlerPool = new RequestHandlerPool(socketServer.requestChannel, apiRequestHandlerChain, proxyConfig.numRequestHandlerThreads)
         requestHandlerPool.start()
 
         def advertisedListenerTable = new AdvertisedListenerTable(proxyConfig.listeners, proxyConfig.advertisedListeners)
         def apiResponseHandlerChain = new ApiResponseHandlerChain(Seq(
           new AdvertisedListenerRewriteFilter(routeTable, advertisedListenerTable),
-          response => println(response)))
+          response => { response.request.header.apiKey match {
+            case ApiKeys.FETCH => None
+            case ApiKeys.BROKER_HEARTBEAT => None
+            case _ => println(response)
+          }}))
         responseHandlerPool = new ResponseHandlerPool(socketServer.requestChannel, requestForwarder.forwardChannel, apiResponseHandlerChain, proxyConfig.numResponseHandlerThreads)
         responseHandlerPool.start()
 

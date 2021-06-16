@@ -1,5 +1,6 @@
 package net.uweeisele.kafka.proxy.request
 
+import net.uweeisele.kafka.proxy.network.RequestChannel.CloseConnectionResponse
 import net.uweeisele.kafka.proxy.network.{AbstractServerThread, RequestChannel}
 
 class RequestHandler(val id: Int,
@@ -21,7 +22,9 @@ class RequestHandler(val id: Int,
             try {
               apis.handle(request)
             } catch {
-              case e: Throwable => logger.error(s"Exception when handling request on request handler $id", e)
+              case e: Throwable =>
+                logger.error(s"Exception when handling request on request handler $id", e)
+                requestChannel.sendResponse(new CloseConnectionResponse(request))
             }
 
           case null => //continue

@@ -18,8 +18,9 @@ import java.io.IOException
 import java.net.{InetSocketAddress, SocketAddress}
 import java.nio.channels.SocketChannel
 import java.nio.{BufferUnderflowException, ByteBuffer}
-import java.util.concurrent.LinkedBlockingDeque
-import scala.collection.Map
+import java.util
+import java.util.concurrent.{ConcurrentLinkedQueue, LinkedBlockingDeque}
+import scala.collection.{Map, mutable}
 import scala.jdk.CollectionConverters._
 import scala.util.control.ControlThrowable
 
@@ -48,7 +49,8 @@ class Processor(val id: Int,
   }
 
   private val inflightRequests = new InFlightRequests()
-  private val commandQueue = new LinkedBlockingDeque[Command]()
+  private val commandQueue = new ConcurrentLinkedQueue[Command]()
+  private val connections = mutable.Map[String,InetSocketAddress]()
 
   private val selector = createSelector(
     ChannelBuilderBuilder.build(
@@ -80,6 +82,7 @@ class Processor(val id: Int,
       while (isRunning) {
         try {
           processNewCommands()
+          processUnsent()
           poll()
           processCompletedSends()
           processCompletedReceives()
@@ -135,41 +138,64 @@ class Processor(val id: Int,
     }
   }
 
-  // `protected` for test usage
-  protected def sendRequest(connectionId: String, request: RequestChannel.Request, onCompleteCallback: Option[Send => Unit] = None): Unit = {
-    logger.trace(s"Socket server received response to send to $connectionId, registering for write and sending data: $request")
-    // `channel` can be None if the connection was closed remotely or if selector closed it for being idle for too long
-    if (channel(connectionId).isEmpty) logger.warn(s"Attempting to send request via channel for which there is no open connection, connection id $connectionId")
-    // Invoke send for closingChannel as well so that the send is failed and the channel closed properly and
-    // removed from the Selector after discarding any pending staged receives.
-    // `openOrClosingChannel` can be None if the selector closed the connection because it was idle for too long
-    openOrClosingChannel(connectionId) match {
-      case Some(channel) =>
-        val forwardContext = new RequestContext(request.header, connectionId, remoteAddressFromChannel(channel), localAddressFromChannel(channel),
-          channel.principal, listenerName, securityProtocol,
-          channel.channelMetadataRegistry.clientInformation, channel.principalSerde())
-        val body = request.body[AbstractRequest]
+  private def sendRequest(connectionId: String, request: RequestChannel.Request, onCompleteCallback: Option[Send => Unit] = None): Unit = {
+    connections.get(connectionId) match {
+      case Some(_) =>
         inflightRequests.add(new InFlightRequest(
           request,
           connectionId,
-          forwardContext,
           onCompleteCallback,
           time.nanoseconds(),
           requestTimeoutMs
         ))
-        selector.send(new NetworkSend(connectionId, body.toSend(request.header)))
       case None =>
+        logger.warn(s"Attempting to send request via channel for which there is no connection, connection id $connectionId")
+        forwardChannel.sendResponse(new CloseConnectionResponse(request))
     }
   }
 
-  // `protected` for test usage
-  protected def connect(connectionId: String, address: InetSocketAddress): Unit = {
-    logger.info(s"Connecting to target $address for connection $connectionId")
-    selector.connect(connectionId, address, sendBufferSize, receiveBufferSize)
+  private def processUnsent(): Unit = {
+    inflightRequests.connections.forEach { connectionId =>
+      openChannel(connectionId) match {
+        case Some(channel) =>
+          val it = inflightRequests.unset(connectionId).iterator
+          while (channel.isConnected && channel.ready && it.hasNext) {
+            val inFlightRequest = it.next
+            val body = inFlightRequest.request.body[AbstractRequest]
+            selector.send(new NetworkSend(connectionId, body.toSend(inFlightRequest.header)))
+            inFlightRequest.setSent()
+          }
+          if (it.hasNext && (!channel.isConnected || !channel.ready)) {
+            logger.info(s"Could not send request via connection $connectionId, because not ready")
+          }
+        case None =>
+          logger.warn(s"Attempting to send request via channel for which there is no open connection, connection id $connectionId")
+          initiateConnect(connectionId)
+      }
+    }
   }
 
-  // `protected` for test usage
-  protected def disconnect(connectionId: String): Unit = close(connectionId)
+  private def connect(connectionId: String, address: InetSocketAddress): Unit = {
+    disconnect(connectionId)
+    connections += connectionId -> address
+    initiateConnect(connectionId)
+  }
+
+  private def initiateConnect(connectionId: String): Unit = {
+    connections.get(connectionId) match {
+      case Some(address) =>
+        if (!address.isUnresolved) {
+          logger.info(s"Connecting to target $address for connection $connectionId")
+          selector.connect(connectionId, address, sendBufferSize, receiveBufferSize)
+        } else {
+          connections += connectionId -> new InetSocketAddress(address.getHostName, address.getPort)
+        }
+      case None =>
+        logger.warn(s"Attempting to send request via channel for which there is no connection, connection id $connectionId")
+    }
+  }
+
+  private def disconnect(connectionId: String): Unit = connections.remove(connectionId).foreach(_ => close(connectionId))
 
   private def poll(): Unit = {
     val pollTimeout = if (commandQueue.isEmpty) 300 else 0
@@ -183,13 +209,14 @@ class Processor(val id: Int,
   }
 
   private def processCompletedSends(): Unit = {
+    //selector.completedSends().forEach(send => logger.info(s"Completed send for connection ${send.destinationId()}"))
     selector.clearCompletedSends()
   }
 
   private def processCompletedReceives(): Unit = {
     selector.completedReceives.forEach { receive =>
       try openOrClosingChannel(receive.source) match {
-        case Some(_) =>
+        case Some(channel) =>
           val source = receive.source
           val req = inflightRequests.completeNext(source)
 
@@ -200,7 +227,10 @@ class Processor(val id: Int,
               req.header.apiKey, req.connectionId, req.header, response)
           }
 
-          val channelResponse = new SendResponse(req.request, response, req.forwardContext, req.onCompleteCallback)
+          val forwardContext = new RequestContext(req.header, req.connectionId, remoteAddressFromChannel(channel), localAddressFromChannel(channel),
+            channel.principal, listenerName, securityProtocol,
+            channel.channelMetadataRegistry.clientInformation, channel.principalSerde())
+          val channelResponse = new SendResponse(req.request, response, forwardContext, req.onCompleteCallback)
           forwardChannel.sendResponse(channelResponse)
 
         case None =>
@@ -229,17 +259,22 @@ class Processor(val id: Int,
 
   private def localAddressFromChannel(channel: KafkaChannel) = addressFromChannel(channel, socketChannel => socketChannel.getLocalAddress)
 
-  private def addressFromChannel(channel: KafkaChannel, supplier: SocketChannel => SocketAddress) = channel.selectionKey().channel() match {
+  private def addressFromChannel(channel: KafkaChannel, supplier: SocketChannel => SocketAddress): InetSocketAddress = channel.selectionKey().channel() match {
     case socketChannel: SocketChannel => supplier(socketChannel) match {
       case inetSocketAddress: InetSocketAddress => inetSocketAddress
-      case _ =>  throw new KafkaException(s"${channel.id} is not a InetSocketAddress! Should never be thrown")
+      //case null => TODO!!!
+      case address =>
+        logger.warn(s"############# ${channel.id} no defined socket! connected: ${channel.isConnected} muted: ${channel.isMuted}")
+        InetSocketAddress.createUnresolved("localhost", 1234) //throw new KafkaException(s"${channel.id} is not a InetSocketAddress, but ${address}! Should never be thrown!")
     }
-    case _ => throw new KafkaException(s"${channel.id} is not a SocketChannel! Should never be thrown")
+    case _ => throw new KafkaException(s"${channel.id} is not a SocketChannel! Should never be thrown!")
   }
 
   private def processDisconnected(): Unit = {
     selector.disconnected.keySet.forEach { connectionId =>
+      logger.info(s"Disconnected from $connectionId")
       inflightRequests.clearAll(connectionId)
+        .foreach(inflightRequest => forwardChannel.sendResponse(new CloseConnectionResponse(inflightRequest.request)))
     }
   }
 
@@ -269,6 +304,7 @@ class Processor(val id: Int,
       logger.debug(s"Closing selector connection $connectionId")
       selector.close(connectionId)
       inflightRequests.clearAll(connectionId)
+        .foreach(inflightRequest => forwardChannel.sendResponse(new CloseConnectionResponse(inflightRequest.request)))
     }
   }
 
@@ -283,7 +319,7 @@ class Processor(val id: Int,
   }
 
   def enqueueCommand(command: Command): Unit = {
-    commandQueue.put(command)
+    commandQueue.add(command)
     wakeup()
   }
 
@@ -291,13 +327,14 @@ class Processor(val id: Int,
 
   def commandQueueSize = commandQueue.size
 
-  // Visible for testing
   // Only methods that are safe to call on a disconnected channel should be invoked on 'openOrClosingChannel'.
   private def openOrClosingChannel(connectionId: String) =
     Option(selector.channel(connectionId)).orElse(Option(selector.closingChannel(connectionId)))
 
-  /* For test usage */
-  private def channel(connectionId: String) =
+  private def connectedChannel(connectionId: String) =
+    Option(selector.channel(connectionId)).filter(c => c.isConnected && c.ready())
+
+  private def openChannel(connectionId: String) =
     Option(selector.channel(connectionId))
 
   /**

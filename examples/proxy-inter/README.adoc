@@ -1,0 +1,20 @@
+= KRaft Kafka 2.8 Cluster with Intern L7 Proxy Communication
+
+Example with a L7 Kafka Proxy and a Kafka 2.8 Cluster with KRaft using plaintext.
+The Kafka image with KRaft support is developed at: https://github.com/ueisele/kafka-images
+
+== Quick Start
+
+.Start Kafka Cluster and Kafka Proxy
+[source,bash]
+----
+docker-compse up
+----
+
+Open another window and test connectivity.
+
+.Connect to Docker container with Kafka Cli
+[source,bash]
+----
+docker-compose exec kafka-cli bash
+----

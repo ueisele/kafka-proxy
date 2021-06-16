@@ -32,27 +32,32 @@
 package net.uweeisele.kafka.proxy.forward
 
 import net.uweeisele.kafka.proxy.network.RequestChannel
-import net.uweeisele.kafka.proxy.request.RequestContext
 import org.apache.kafka.common.network.Send
 
+import java.util
 import java.util._
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable.ListBuffer
 
 class InFlightRequest(val request: RequestChannel.Request,
                       val connectionId: String,
-                      val forwardContext: RequestContext,
                       val onCompleteCallback: Option[Send => Unit],
                       val sendTimeNanos: Long,
                       val requestTimeoutMs: Long) {
 
   val header = request.header
   val createdTimeNanos = request.startTimeNanos
+  private var sent = false
 
-  override def toString = new StringJoiner(", ", classOf[InFlightRequest].getSimpleName + "[", "]")
+  def isSent(): Boolean = sent
+
+  def setSent(): Unit = sent = true
+
+  override def toString: String = new StringJoiner(", ", classOf[InFlightRequest].getSimpleName + "[", "]")
     .add("request=" + request)
     .add("header=" + header)
     .add("connectionId='" + connectionId + "'")
+    .add("sent='" + sent + "'")
     .add("createdTimeNanos=" + createdTimeNanos)
     .add("sendTimeNanos=" + sendTimeNanos)
     .add("requestTimeoutMs=" + requestTimeoutMs)
@@ -70,7 +75,7 @@ class InFlightRequests {
   /**
    * Add the given request to the queue for the connection it was directed to
    */
-  def add(request: InFlightRequest) = {
+  def add(request: InFlightRequest): Int = {
     val connectionId = request.connectionId
     var reqs = this.requests.get(connectionId)
     if (reqs == null) {
@@ -90,10 +95,16 @@ class InFlightRequests {
     reqs
   }
 
+  def connections: util.Set[String] = requests.keySet()
+
+  def unset(connectionId: String): util.stream.Stream[InFlightRequest] = {
+    requests.get(connectionId).stream().filter( request => !request.isSent())
+  }
+
   /**
    * Get the oldest request (the one that will be completed next) for the given connection
    */
-  def completeNext(connectionId: String) = {
+  def completeNext(connectionId: String): InFlightRequest = {
     val inFlightRequest = requestQueue(connectionId).pollLast
     inFlightRequestCount.decrementAndGet
     inFlightRequest
@@ -104,7 +115,7 @@ class InFlightRequests {
    *
    * @param connectionId The connectionId
    */
-  def lastSent(connectionId: String) = requestQueue(connectionId).peekFirst
+  def lastSent(connectionId: String): InFlightRequest = requestQueue(connectionId).peekFirst
 
   /**
    * Complete the last request that was sent to a particular connection.
@@ -112,7 +123,7 @@ class InFlightRequests {
    * @param connectionId The connection the request was sent to
    * @return The request
    */
-  def completeLastSent(connectionId: String) = {
+  def completeLastSent(connectionId: String): InFlightRequest = {
     val inFlightRequest = requestQueue(connectionId).pollFirst
     inFlightRequestCount.decrementAndGet
     inFlightRequest
@@ -124,7 +135,7 @@ class InFlightRequests {
    * @param connectionId The connectionId
    * @return The request count.
    */
-  def count(connectionId: String) = {
+  def count(connectionId: String): Int = {
     val queue = requests.get(connectionId)
     if (queue == null) 0
     else queue.size
@@ -133,7 +144,7 @@ class InFlightRequests {
   /**
    * Return true if there is no in-flight request directed at the given node and false otherwise
    */
-  def isEmpty(connectionId: String) = {
+  def isEmpty(connectionId: String): Boolean = {
     val queue = requests.get(connectionId)
     queue == null || queue.isEmpty
   }
@@ -141,7 +152,7 @@ class InFlightRequests {
   /**
    * Count all in-flight requests for all nodes. This method is thread safe, but may lag the actual count.
    */
-  def count = inFlightRequestCount.get
+  def count: Int = inFlightRequestCount.get
 
   /**
    * Return true if there is no in-flight request and false otherwise
