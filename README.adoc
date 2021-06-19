@@ -3,7 +3,7 @@
 == Quick Start
 
 This repository contains example deployments for the Kafka Proxy combined with a Kafka Cluster.
-In order to get started just navigate to link:examples/proxy-plaintext/[] and run the following command:
+In order to get started just navigate to link:examples/proxyl7-kraft-plaintext/[] and run the following command:
 
 .Start Kafka Cluster and Kafka Proxy
 [source,bash]
@@ -11,7 +11,7 @@ In order to get started just navigate to link:examples/proxy-plaintext/[] and ru
 docker-compse up
 ----
 
-Find additional information at link:examples/proxy-plaintext/README.adoc[].
+Find additional information at link:examples/proxyl7-kraft-plaintext/README.adoc[].
 
 == Build and Run
 

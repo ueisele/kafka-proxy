@@ -1,41 +1,82 @@
 #############################################################
-# KRaft Cluster Dedicated Mode                              #
-# 3x controller + 3x broker                                 #
+# KRaft Kafka Cluster                                       #
+# L4 Kafka Proxy for Clients                                #
 #############################################################
-# https://github.com/apache/kafka/blob/2.8.0/config/kraft/README.md
-# In KRaft mode, only a small group of specially selected servers can act as controllers
-# (unlike the ZooKeeper-based mode, where any server can become the Controller).
-# The specially selected controller servers will participate in the metadata quorum.
-# Each controller server is either active, or a hot standby for the current active controller server.
-#
-# You will typically select 3 or 5 servers for this role,
-# depending on factors like cost and the number of concurrent failures your system should withstand without availability impact.
-# Just like with ZooKeeper, you must keep a majority of the controllers alive in order to maintain availability.
-# So if you have 3 controllers, you can tolerate 1 failure; with 5 controllers, you can tolerate 2 failures.
 ---
 version: '2.4'
 services:
+  #############################################################
+  # Kafka CLI                                                 #
+  #############################################################
+  kafka-cli:
+    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    hostname: kafka-cli
+    networks:
+      - public
+    entrypoint: /bin/bash
+    tty: true
+
+  kafkacat:
+    image: confluentinc/cp-kafkacat:6.2.0
+    hostname: kafkacat
+    networks:
+      - public
+    entrypoint: /bin/bash
+    tty: true
 
   #############################################################
-  # L7 Kafka Proxy                                            #
+  # Envoy Proxy                                               #
   #############################################################
-  kafka-proxy-l7:
-    image: ueisele/kafka-proxy
-    build:
-      context: ../../
-      dockerfile: image/Dockerfile
+  envoy-kafka-broker1:
+    image: envoyproxy/envoy:${ENVOY_VERSION}
     restart: always
-    hostname: kafka-proxy-l7
-    ports:
-      - 19092:19092
-      - 19093:19093
-      - 19094:19094
-    environment:
-      KAFKA_PROXY_LISTENERS: INTERNAL://0.0.0.0:9092,0.0.0.0:9093,0.0.0.0:9094;EXTERNAL://0.0.0.0:19092,0.0.0.0:19093,0.0.0.0:19094
-      KAFKA_PROXY_ADVERTISED_LISTENERS: INTERNAL://kafka-proxy-l7.${DOMAIN_NAME}:9092,kafka-proxy-l7.${DOMAIN_NAME}:9093,kafka-proxy-l7.${DOMAIN_NAME}:9094;EXTERNAL://127.0.0.1:19092,127.0.0.1:19093,127.0.0.1:19094
-      KAFKA_PROXY_TARGETS: PLAINTEXT://kafka-broker1:9092,kafka-broker2:9092,kafka-broker3:9092
-      KAFKA_PROXY_ROUTES: INTERNAL->PLAINTEXT,EXTERNAL->PLAINTEXT
-      KAFKA_PROXY_LISTENER_SECURITY_PROTOCOL_MAP: EXTERNAL:PLAINTEXT,INTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL
+    hostname: envoy-kafka-broker1
+    command: ["envoy", "-c", "/etc/envoy/envoy.yaml", "--component-log-level", "kafka:trace"]
+    volumes:
+      - ./envoy-kafka-broker1.yaml:/etc/envoy/envoy.yaml
+    expose:
+      - 9092
+      - 10000
+    networks:
+      public:
+        aliases:
+          - kafka
+          - envoy-kafka
+      intern: {}
+
+  envoy-kafka-broker2:
+    image: envoyproxy/envoy:${ENVOY_VERSION}
+    restart: always
+    hostname: envoy-kafka-broker2
+    command: ["envoy", "-c", "/etc/envoy/envoy.yaml", "--component-log-level", "kafka:trace"]
+    expose:
+      - 9092
+      - 10000
+    volumes:
+      - ./envoy-kafka-broker2.yaml:/etc/envoy/envoy.yaml
+    networks:
+      public:
+        aliases:
+          - kafka
+          - envoy-kafka
+      intern: {}
+
+  envoy-kafka-broker3:
+    image: envoyproxy/envoy:${ENVOY_VERSION}
+    restart: always
+    hostname: envoy-kafka-broker3
+    command: ["envoy", "-c", "/etc/envoy/envoy.yaml", "--component-log-level", "kafka:trace"]
+    volumes:
+      - ./envoy-kafka-broker3.yaml:/etc/envoy/envoy.yaml
+    expose:
+      - 9092
+      - 10000
+    networks:
+      public:
+        aliases:
+          - kafka
+          - envoy-kafka
+      intern: {}
 
   #############################################################
   # Kafka Controller                                          #
@@ -44,6 +85,8 @@ services:
     image: ueisele/apache-kafka-server:${KAFKA_VERSION}
     restart: always
     hostname: kafka-controller1
+    networks:
+      - intern
     volumes:
       - kafka-controller1:/opt/apache/kafka/data
     environment:
@@ -62,6 +105,8 @@ services:
     image: ueisele/apache-kafka-server:${KAFKA_VERSION}
     restart: always
     hostname: kafka-controller2
+    networks:
+      - intern
     volumes:
       - kafka-controller2:/opt/apache/kafka/data
     environment:
@@ -80,6 +125,8 @@ services:
     image: ueisele/apache-kafka-server:${KAFKA_VERSION}
     restart: always
     hostname: kafka-controller3
+    networks:
+      - intern
     volumes:
       - kafka-controller3:/opt/apache/kafka/data
     environment:
@@ -102,7 +149,7 @@ services:
     restart: always
     hostname: kafka-broker1
     networks:
-      default:
+      intern:
         aliases:
           - kafka
     volumes:
@@ -116,18 +163,19 @@ services:
       KAFKA_NODE_ID: 101 # (default: -1, required in KRaft mode) The node id for this server.
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-controller1:9093,2@kafka-controller2:9093,3@kafka-controller3:9093 # (required in KRaft mode) The connect string for the controller quorum
       #### Socket Server Settings ###
-      KAFKA_ADVERTISED_LISTENERS: CLIENT://kafka-broker1:9092,REPLICATION://kafka-broker1:9091,CONTROLPANE://kafka-broker1:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
+      KAFKA_LISTENERS: PUBLIC://0.0.0.0:19092,INTERN://0.0.0.0:9092,REPLICATION://0.0.0.0:9091,CONTROLPANE://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: PUBLIC://envoy-kafka-broker1:9092,INTERN://kafka-broker1:9092,REPLICATION://kafka-broker1:9091,CONTROLPANE://kafka-broker1:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
       KAFKA_INTER_BROKER_LISTENER_NAME: REPLICATION
       KAFKA_CONTROL_PLANE_LISTENER_NAME: CONTROLPANE
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER # (required in KRaft mode) The listeners used by the controller to define the security protocol.
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CLIENT:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLPANE:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PUBLIC:PLAINTEXT,INTERN:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLPANE:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
 
   kafka-broker2:
     image: ueisele/apache-kafka-server:${KAFKA_VERSION}
     restart: always
     hostname: kafka-broker2
     networks:
-      default:
+      intern:
         aliases:
           - kafka
     volumes:
@@ -141,18 +189,19 @@ services:
       KAFKA_NODE_ID: 102 # (default: -1, required in KRaft mode) The node id for this server.
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-controller1:9093,2@kafka-controller2:9093,3@kafka-controller3:9093 # (required in KRaft mode) The connect string for the controller quorum
       #### Socket Server Settings ###
-      KAFKA_ADVERTISED_LISTENERS: CLIENT://kafka-broker2:9092,REPLICATION://kafka-broker2:9091,CONTROLPANE://kafka-broker2:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
+      KAFKA_LISTENERS: PUBLIC://0.0.0.0:19092,INTERN://0.0.0.0:9092,REPLICATION://0.0.0.0:9091,CONTROLPANE://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: PUBLIC://envoy-kafka-broker2:9092,INTERN://kafka-broker2:9092,REPLICATION://kafka-broker2:9091,CONTROLPANE://kafka-broker2:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
       KAFKA_INTER_BROKER_LISTENER_NAME: REPLICATION
       KAFKA_CONTROL_PLANE_LISTENER_NAME: CONTROLPANE
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER # (required in KRaft mode) The listeners used by the controller to define the security protocol.
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CLIENT:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLPANE:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PUBLIC:PLAINTEXT,INTERN:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLPANE:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
 
   kafka-broker3:
     image: ueisele/apache-kafka-server:${KAFKA_VERSION}
     restart: always
     hostname: kafka-broker3
     networks:
-      default:
+      intern:
         aliases:
           - kafka
     volumes:
@@ -166,26 +215,12 @@ services:
       KAFKA_NODE_ID: 103 # (default: -1, required in KRaft mode) The node id for this server.
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-controller1:9093,2@kafka-controller2:9093,3@kafka-controller3:9093 # (required in KRaft mode) The connect string for the controller quorum
       #### Socket Server Settings ###
-      KAFKA_ADVERTISED_LISTENERS: CLIENT://kafka-broker3:9092,REPLICATION://kafka-broker3:9091,CONTROLPANE://kafka-broker3:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
+      KAFKA_LISTENERS: PUBLIC://0.0.0.0:19092,INTERN://0.0.0.0:9092,REPLICATION://0.0.0.0:9091,CONTROLPANE://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: PUBLIC://envoy-kafka-broker3:9092,INTERN://kafka-broker3:9092,REPLICATION://kafka-broker3:9091,CONTROLPANE://kafka-broker3:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
       KAFKA_INTER_BROKER_LISTENER_NAME: REPLICATION
       KAFKA_CONTROL_PLANE_LISTENER_NAME: CONTROLPANE
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER # (required in KRaft mode) The listeners used by the controller to define the security protocol.
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CLIENT:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLPANE:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
-
-  #############################################################
-  # Kafka CLI                                                 #
-  #############################################################
-  kafka-cli:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
-    hostname: kafka-cli
-    entrypoint: /bin/bash
-    tty: true
-
-  kafkacat:
-    image: confluentinc/cp-kafkacat:6.2.0
-    hostname: kafkacat
-    entrypoint: /bin/bash
-    tty: true
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PUBLIC:PLAINTEXT,INTERN:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLPANE:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
 
 volumes:
   kafka-controller1:
@@ -196,5 +231,9 @@ volumes:
   kafka-broker3:
 
 networks:
-  default:
-    name: ${DOMAIN_NAME}
+  public:
+    name: ${DOMAIN_PUBLIC}
+    driver: bridge
+  intern:
+    name: ${DOMAIN_INTERN}
+    driver: bridge

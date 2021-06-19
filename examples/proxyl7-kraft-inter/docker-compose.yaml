@@ -1,17 +1,7 @@
 #############################################################
-# KRaft Cluster Dedicated Mode                              #
-# 3x controller + 3x broker                                 #
+# KRaft Kafka Cluster                                       #
+# L7 Kafka Proxy for Clients, Replication and Controller    #
 #############################################################
-# https://github.com/apache/kafka/blob/2.8.0/config/kraft/README.md
-# In KRaft mode, only a small group of specially selected servers can act as controllers
-# (unlike the ZooKeeper-based mode, where any server can become the Controller).
-# The specially selected controller servers will participate in the metadata quorum.
-# Each controller server is either active, or a hot standby for the current active controller server.
-#
-# You will typically select 3 or 5 servers for this role,
-# depending on factors like cost and the number of concurrent failures your system should withstand without availability impact.
-# Just like with ZooKeeper, you must keep a majority of the controllers alive in order to maintain availability.
-# So if you have 3 controllers, you can tolerate 1 failure; with 5 controllers, you can tolerate 2 failures.
 ---
 version: '2.4'
 services:

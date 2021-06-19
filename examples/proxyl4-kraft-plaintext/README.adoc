@@ -1,0 +1,9 @@
+= KRaft Kafka Cluster and Envoy Proxy
+
+Each Kafka Broker has its own Envoy Proxy. The proxy listens on port 9092 and forwards to its dedicated Kafka Broker to port 19092. The Kafka Brokers listening ong port 19092 and advertise their Envoy proxy hostname and 9092 as port.
+
+----
+Client -- 9092 --> Envoy Proxy -- 19092 --> Kafka Broker
+----
+
+see https://www.envoyproxy.io/docs/envoy/latest/configuration/listeners/network_filters/kafka_broker_filter
