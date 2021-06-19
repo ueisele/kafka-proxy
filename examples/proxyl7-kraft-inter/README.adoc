@@ -3,6 +3,8 @@
 Example with a L7 Kafka Proxy and a Kafka 2.8 Cluster with KRaft using plaintext.
 The Kafka image with KRaft support is developed at: https://github.com/ueisele/kafka-images
 
+NOTE: Using Docker image _ueisele/ueisele-kafka-server:2.8.0-24-g384d5cc_ from Git repository https://github.com/ueisele/kafka/tree/fix/kraft-advertisedlisteners. It contains a fix which advertises the actual advertised port and not the socket server port (see https://github.com/ueisele/kafka/commit/384d5cc983d77139f06d5cbce296c64e4ff8faa2). Kafka 2.8.0 returns the socket server port instead of the advertised port and therefor this example does not work with this version.
+
 == Quick Start
 
 .Start Kafka Cluster and Kafka Proxy

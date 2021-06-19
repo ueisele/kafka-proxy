@@ -9,7 +9,7 @@ services:
   # Kafka CLI                                                 #
   #############################################################
   kafka-cli:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     hostname: kafka-cli
     networks:
       - public
@@ -28,7 +28,7 @@ services:
   # Envoy Proxy                                               #
   #############################################################
   envoy-kafka-broker1:
-    image: envoyproxy/envoy:${ENVOY_VERSION}
+    image: ${ENVOY_IMAGE}:${ENVOY_VERSION}
     restart: always
     hostname: envoy-kafka-broker1
     command: ["envoy", "-c", "/etc/envoy/envoy.yaml", "--component-log-level", "kafka:trace"]
@@ -45,7 +45,7 @@ services:
       intern: {}
 
   envoy-kafka-broker2:
-    image: envoyproxy/envoy:${ENVOY_VERSION}
+    image: ${ENVOY_IMAGE}:${ENVOY_VERSION}
     restart: always
     hostname: envoy-kafka-broker2
     command: ["envoy", "-c", "/etc/envoy/envoy.yaml", "--component-log-level", "kafka:trace"]
@@ -62,7 +62,7 @@ services:
       intern: {}
 
   envoy-kafka-broker3:
-    image: envoyproxy/envoy:${ENVOY_VERSION}
+    image: ${ENVOY_IMAGE}:${ENVOY_VERSION}
     restart: always
     hostname: envoy-kafka-broker3
     command: ["envoy", "-c", "/etc/envoy/envoy.yaml", "--component-log-level", "kafka:trace"]
@@ -82,7 +82,7 @@ services:
   # Kafka Controller                                          #
   #############################################################
   kafka-controller1:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     restart: always
     hostname: kafka-controller1
     networks:
@@ -102,7 +102,7 @@ services:
       KAFKA_CONTROLLER_LISTENER_NAMES: PLAINTEXT # (required in KRaft mode) A comma-separated list of the names of the listeners used by the controller.
 
   kafka-controller2:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     restart: always
     hostname: kafka-controller2
     networks:
@@ -122,7 +122,7 @@ services:
       KAFKA_CONTROLLER_LISTENER_NAMES: PLAINTEXT # (required in KRaft mode) A comma-separated list of the names of the listeners used by the controller.
 
   kafka-controller3:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     restart: always
     hostname: kafka-controller3
     networks:
@@ -145,7 +145,7 @@ services:
   # Kafka Broker                                              #
   #############################################################
   kafka-broker1:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     restart: always
     hostname: kafka-broker1
     networks:
@@ -171,7 +171,7 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PUBLIC:PLAINTEXT,INTERN:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLPANE:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
 
   kafka-broker2:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     restart: always
     hostname: kafka-broker2
     networks:
@@ -197,7 +197,7 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PUBLIC:PLAINTEXT,INTERN:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLPANE:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
 
   kafka-broker3:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     restart: always
     hostname: kafka-broker3
     networks:

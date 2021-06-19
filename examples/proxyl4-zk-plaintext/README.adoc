@@ -6,4 +6,4 @@ Each Kafka Broker has its own Envoy Proxy. The proxy listens on port 9092 and fo
 Client -- 9092 --> Envoy Proxy -- 19092 --> Kafka Broker
 ----
 
-see https://www.envoyproxy.io/docs/envoy/latest/configuration/listeners/network_filters/kafka_broker_filter
+NOTE: Also see https://www.envoyproxy.io/docs/envoy/latest/configuration/listeners/network_filters/kafka_broker_filter
