@@ -25,51 +25,19 @@ services:
     tty: true
 
   #############################################################
-  # Envoy Proxy                                               #
+  # L4 Proxy (Envoy)                                          #
   #############################################################
-  envoy-kafka-broker1:
+  envoy-kafka-broker:
     image: ${ENVOY_IMAGE}:${ENVOY_VERSION}
     restart: always
-    hostname: envoy-kafka-broker1
+    hostname: envoy-kafka-broker
     command: ["envoy", "-c", "/etc/envoy/envoy.yaml", "--component-log-level", "kafka:trace"]
     volumes:
-      - ./envoy-kafka-broker1.yaml:/etc/envoy/envoy.yaml
+      - ./envoy-kafka-broker.yaml:/etc/envoy/envoy.yaml
     expose:
+      - 9091
       - 9092
-      - 10000
-    networks:
-      public:
-        aliases:
-          - kafka
-          - envoy-kafka
-      intern: {}
-
-  envoy-kafka-broker2:
-    image: ${ENVOY_IMAGE}:${ENVOY_VERSION}
-    restart: always
-    hostname: envoy-kafka-broker2
-    command: ["envoy", "-c", "/etc/envoy/envoy.yaml", "--component-log-level", "kafka:trace"]
-    expose:
-      - 9092
-      - 10000
-    volumes:
-      - ./envoy-kafka-broker2.yaml:/etc/envoy/envoy.yaml
-    networks:
-      public:
-        aliases:
-          - kafka
-          - envoy-kafka
-      intern: {}
-
-  envoy-kafka-broker3:
-    image: ${ENVOY_IMAGE}:${ENVOY_VERSION}
-    restart: always
-    hostname: envoy-kafka-broker3
-    command: ["envoy", "-c", "/etc/envoy/envoy.yaml", "--component-log-level", "kafka:trace"]
-    volumes:
-      - ./envoy-kafka-broker3.yaml:/etc/envoy/envoy.yaml
-    expose:
-      - 9092
+      - 9093
       - 10000
     networks:
       public:
@@ -164,7 +132,7 @@ services:
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-controller1:9093,2@kafka-controller2:9093,3@kafka-controller3:9093 # (required in KRaft mode) The connect string for the controller quorum
       #### Socket Server Settings ###
       KAFKA_LISTENERS: PUBLIC://0.0.0.0:19092,INTERN://0.0.0.0:9092,REPLICATION://0.0.0.0:9091,CONTROLPANE://0.0.0.0:9094
-      KAFKA_ADVERTISED_LISTENERS: PUBLIC://envoy-kafka-broker1:9092,INTERN://kafka-broker1:9092,REPLICATION://kafka-broker1:9091,CONTROLPANE://kafka-broker1:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
+      KAFKA_ADVERTISED_LISTENERS: PUBLIC://envoy-kafka-broker:9091,INTERN://kafka-broker1:9092,REPLICATION://kafka-broker1:9091,CONTROLPANE://kafka-broker1:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
       KAFKA_INTER_BROKER_LISTENER_NAME: REPLICATION
       KAFKA_CONTROL_PLANE_LISTENER_NAME: CONTROLPANE
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER # (required in KRaft mode) The listeners used by the controller to define the security protocol.
@@ -190,7 +158,7 @@ services:
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-controller1:9093,2@kafka-controller2:9093,3@kafka-controller3:9093 # (required in KRaft mode) The connect string for the controller quorum
       #### Socket Server Settings ###
       KAFKA_LISTENERS: PUBLIC://0.0.0.0:19092,INTERN://0.0.0.0:9092,REPLICATION://0.0.0.0:9091,CONTROLPANE://0.0.0.0:9094
-      KAFKA_ADVERTISED_LISTENERS: PUBLIC://envoy-kafka-broker2:9092,INTERN://kafka-broker2:9092,REPLICATION://kafka-broker2:9091,CONTROLPANE://kafka-broker2:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
+      KAFKA_ADVERTISED_LISTENERS: PUBLIC://envoy-kafka-broker:9092,INTERN://kafka-broker2:9092,REPLICATION://kafka-broker2:9091,CONTROLPANE://kafka-broker2:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
       KAFKA_INTER_BROKER_LISTENER_NAME: REPLICATION
       KAFKA_CONTROL_PLANE_LISTENER_NAME: CONTROLPANE
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER # (required in KRaft mode) The listeners used by the controller to define the security protocol.
@@ -216,7 +184,7 @@ services:
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-controller1:9093,2@kafka-controller2:9093,3@kafka-controller3:9093 # (required in KRaft mode) The connect string for the controller quorum
       #### Socket Server Settings ###
       KAFKA_LISTENERS: PUBLIC://0.0.0.0:19092,INTERN://0.0.0.0:9092,REPLICATION://0.0.0.0:9091,CONTROLPANE://0.0.0.0:9094
-      KAFKA_ADVERTISED_LISTENERS: PUBLIC://envoy-kafka-broker3:9092,INTERN://kafka-broker3:9092,REPLICATION://kafka-broker3:9091,CONTROLPANE://kafka-broker3:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
+      KAFKA_ADVERTISED_LISTENERS: PUBLIC://envoy-kafka-broker:9093,INTERN://kafka-broker3:9092,REPLICATION://kafka-broker3:9091,CONTROLPANE://kafka-broker3:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
       KAFKA_INTER_BROKER_LISTENER_NAME: REPLICATION
       KAFKA_CONTROL_PLANE_LISTENER_NAME: CONTROLPANE
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER # (required in KRaft mode) The listeners used by the controller to define the security protocol.

@@ -1,9 +1,7 @@
-= Kafka Cluster with ZooKeeper and Envoy Proxy
+= Kafka Cluster with ZooKeeper and L4 Proxy (Envoy)
 
-Each Kafka Broker has its own Envoy Proxy. The proxy listens on port 9092 and forwards to its dedicated Kafka Broker to port 19092. The Kafka Brokers listening ong port 19092 and advertise their Envoy proxy hostname and 9092 as port.
+The envoy proxy listens on ports 909[1-3] and forwards to the corresponding Kafka Broker [1-3] to port 19092. The Kafka Brokers are listening on port 19092 and advertises the envoy proxy hostname and their corresponding port (909[1-3]).
 
 ----
-Client -- 9092 --> Envoy Proxy -- 19092 --> Kafka Broker
+Client -- 909[1-3] --> Envoy Proxy -- 19092 --> Kafka Broker [1-3]
 ----
-
-NOTE: Also see https://www.envoyproxy.io/docs/envoy/latest/configuration/listeners/network_filters/kafka_broker_filter

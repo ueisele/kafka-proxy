@@ -9,7 +9,7 @@ services:
   # Kafka CLI                                                 #
   #############################################################
   kafka-cli:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     hostname: kafka-cli
     networks:
       - public
@@ -25,51 +25,19 @@ services:
     tty: true
 
   #############################################################
-  # Envoy Proxy                                               #
+  # L4 Proxy (Envoy)                                          #
   #############################################################
-  envoy-kafka-broker1:
-    image: envoyproxy/envoy:${ENVOY_VERSION}
+  envoy-kafka-broker:
+    image: ${ENVOY_IMAGE}:${ENVOY_VERSION}
     restart: always
-    hostname: envoy-kafka-broker1
+    hostname: envoy-kafka-broker
     command: ["envoy", "-c", "/etc/envoy/envoy.yaml", "--component-log-level", "kafka:trace"]
     volumes:
-      - ./envoy-kafka-broker1.yaml:/etc/envoy/envoy.yaml
+      - ./envoy-kafka-broker.yaml:/etc/envoy/envoy.yaml
     expose:
+      - 9091
       - 9092
-      - 10000
-    networks:
-      public:
-        aliases:
-          - kafka
-          - envoy-kafka
-      intern: {}
-
-  envoy-kafka-broker2:
-    image: envoyproxy/envoy:${ENVOY_VERSION}
-    restart: always
-    hostname: envoy-kafka-broker2
-    command: ["envoy", "-c", "/etc/envoy/envoy.yaml", "--component-log-level", "kafka:trace"]
-    expose:
-      - 9092
-      - 10000
-    volumes:
-      - ./envoy-kafka-broker2.yaml:/etc/envoy/envoy.yaml
-    networks:
-      public:
-        aliases:
-          - kafka
-          - envoy-kafka
-      intern: {}
-
-  envoy-kafka-broker3:
-    image: envoyproxy/envoy:${ENVOY_VERSION}
-    restart: always
-    hostname: envoy-kafka-broker3
-    command: ["envoy", "-c", "/etc/envoy/envoy.yaml", "--component-log-level", "kafka:trace"]
-    volumes:
-      - ./envoy-kafka-broker3.yaml:/etc/envoy/envoy.yaml
-    expose:
-      - 9092
+      - 9093
       - 10000
     networks:
       public:
@@ -82,7 +50,7 @@ services:
   # ZooKeeper                                                 #
   #############################################################
   zookeeper1:
-    image: confluentinc/cp-zookeeper:${CONFLUENT_VERSION}
+    image: ${ZOOKEEPER_IMAGE}:${ZOOKEEPER_VERSION}
     restart: always
     hostname: zookeeper1
     networks:
@@ -101,7 +69,7 @@ services:
       ZOOKEEPER_SYNC_LIMIT: 2 # (default: 5)
 
   zookeeper2:
-    image: confluentinc/cp-zookeeper:${CONFLUENT_VERSION}
+    image: ${ZOOKEEPER_IMAGE}:${ZOOKEEPER_VERSION}
     restart: always
     hostname: zookeeper2
     networks:
@@ -120,7 +88,7 @@ services:
       ZOOKEEPER_SYNC_LIMIT: 2 # (default: 5)
 
   zookeeper3:
-    image: confluentinc/cp-zookeeper:${CONFLUENT_VERSION}
+    image: ${ZOOKEEPER_IMAGE}:${ZOOKEEPER_VERSION}
     restart: always
     hostname: zookeeper3
     networks:
@@ -142,7 +110,7 @@ services:
   # Kafka Broker                                              #
   #############################################################
   kafka-broker1:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     restart: always
     hostname: kafka-broker1
     networks:
@@ -157,14 +125,14 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper1:2181,zookeeper2:2181,zookeeper3:2181 # (required) Instructs Kafka how to get in touch with ZooKeeper.
       #### Socket Server Settings ###
       KAFKA_LISTENERS: PUBLIC://0.0.0.0:19092,INTERN://0.0.0.0:9092,REPLICATION://0.0.0.0:9091,CONTROLPANE://0.0.0.0:9094
-      KAFKA_ADVERTISED_LISTENERS: PUBLIC://envoy-kafka-broker1:9092,INTERN://kafka-broker1:9092,REPLICATION://kafka-broker1:9091,CONTROLPANE://kafka-broker1:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
+      KAFKA_ADVERTISED_LISTENERS: PUBLIC://envoy-kafka-broker:9091,INTERN://kafka-broker1:9092,REPLICATION://kafka-broker1:9091,CONTROLPANE://kafka-broker1:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
       KAFKA_INTER_BROKER_LISTENER_NAME: REPLICATION
       KAFKA_CONTROL_PLANE_LISTENER_NAME: CONTROLPANE
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER # (required in KRaft mode) The listeners used by the controller to define the security protocol.
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PUBLIC:PLAINTEXT,INTERN:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLPANE:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
 
   kafka-broker2:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     restart: always
     hostname: kafka-broker2
     networks:
@@ -179,14 +147,14 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper2:2181,zookeeper1:2181,zookeeper3:2181 # (required) Instructs Kafka how to get in touch with ZooKeeper.
       #### Socket Server Settings ###
       KAFKA_LISTENERS: PUBLIC://0.0.0.0:19092,INTERN://0.0.0.0:9092,REPLICATION://0.0.0.0:9091,CONTROLPANE://0.0.0.0:9094
-      KAFKA_ADVERTISED_LISTENERS: PUBLIC://envoy-kafka-broker2:9092,INTERN://kafka-broker2:9092,REPLICATION://kafka-broker2:9091,CONTROLPANE://kafka-broker2:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
+      KAFKA_ADVERTISED_LISTENERS: PUBLIC://envoy-kafka-broker:9092,INTERN://kafka-broker2:9092,REPLICATION://kafka-broker2:9091,CONTROLPANE://kafka-broker2:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
       KAFKA_INTER_BROKER_LISTENER_NAME: REPLICATION
       KAFKA_CONTROL_PLANE_LISTENER_NAME: CONTROLPANE
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER # (required in KRaft mode) The listeners used by the controller to define the security protocol.
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PUBLIC:PLAINTEXT,INTERN:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLPANE:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
 
   kafka-broker3:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     restart: always
     hostname: kafka-broker3
     networks:
@@ -201,7 +169,7 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper3:2181,zookeeper1:2181,zookeeper2:2181 # (required) Instructs Kafka how to get in touch with ZooKeeper.
       #### Socket Server Settings ###
       KAFKA_LISTENERS: PUBLIC://0.0.0.0:19092,INTERN://0.0.0.0:9092,REPLICATION://0.0.0.0:9091,CONTROLPANE://0.0.0.0:9094
-      KAFKA_ADVERTISED_LISTENERS: PUBLIC://envoy-kafka-broker3:9092,INTERN://kafka-broker3:9092,REPLICATION://kafka-broker3:9091,CONTROLPANE://kafka-broker3:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
+      KAFKA_ADVERTISED_LISTENERS: PUBLIC://envoy-kafka-broker:9093,INTERN://kafka-broker3:9092,REPLICATION://kafka-broker3:9091,CONTROLPANE://kafka-broker3:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
       KAFKA_INTER_BROKER_LISTENER_NAME: REPLICATION
       KAFKA_CONTROL_PLANE_LISTENER_NAME: CONTROLPANE
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER # (required in KRaft mode) The listeners used by the controller to define the security protocol.
