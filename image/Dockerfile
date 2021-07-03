@@ -39,7 +39,7 @@ ENV LANG="C.UTF-8"
 ENV ZULU_OPENJDK="zulu16-jre-headless"
 ENV JAVA_HOME="/usr/lib/jvm/zulu16"
 
-ENV PYTHON_VERSION="38-3.8.6"
+ENV PYTHON_VERSION="39-3.9.2"
 
 RUN microdnf install -y dnf \
     && dnf update -y \
@@ -61,14 +61,14 @@ RUN microdnf install -y dnf \
 USER appuser
 WORKDIR /home/appuser
 
-ENV PATH=/opt/kafka-proxy/bin:${PATH}
+RUN mkdir -p /opt/kafka-proxy/secrets
+VOLUME ["/opt/kafka-proxy/secrets"]
 
-COPY --from=build --chown=appuser:appuser /work/kafka-proxy.jar /opt/kafka-proxy/libs
+ENV PATH=/opt/kafka-proxy/bin:${PATH}
 
 COPY --chown=appuser:appuser bin /opt/kafka-proxy/bin
 COPY --chown=appuser:appuser image/include/opt/kafka-proxy/docker /opt/kafka-proxy/docker
 
-RUN mkdir -p /opt/kafka-proxy/secrets
-VOLUME ["/opt/kafka-proxy/secrets"]
+COPY --from=build --chown=appuser:appuser /work/kafka-proxy.jar /opt/kafka-proxy/libs
 
 CMD ["/opt/kafka-proxy/docker/run"]
