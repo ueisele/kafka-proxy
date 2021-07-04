@@ -1,14 +1,16 @@
-#############################################################
-# KRaft Kafka Cluster                                       #
-# L7 Kafka Proxy for Clients, Replication and Controller    #
-#############################################################
+#################################################################
+# KRaft Kafka Cluster                                           #
+# L7 Kafka Proxy for                                            #
+# Clients, Inter-Broker, Inter-Controller and Broker-Controller #
+# (Control-Plane listener is not used in Kraft Mode)            #
+#################################################################
 ---
 version: '2.4'
 services:
 
-  #############################################################
-  # L7 Kafka Proxy                                            #
-  #############################################################
+  ###############################################################
+  # L7 Kafka Proxy                                              #
+  ###############################################################
   kafka-proxy-client:
     image: ueisele/kafka-proxy
     build:
@@ -36,25 +38,36 @@ services:
     hostname: kafka-proxy-interbroker
     environment:
       KAFKA_PROXY_LISTENERS: PLAINTEXT://0.0.0.0:9092,0.0.0.0:9093,0.0.0.0:9094
-      KAFKA_PROXY_ADVERTISED_LISTENERS: PLAINTEXT://kafka-proxy-interbroker:9092,kafka-proxy-interbroker:9093,kafka-proxy-interbroker:9094
       KAFKA_PROXY_TARGETS: PLAINTEXT://kafka-broker1:9091,kafka-broker2:9091,kafka-broker3:9091
       KAFKA_PROXY_ROUTES: PLAINTEXT->PLAINTEXT
 
-  kafka-proxy-controller:
+  kafka-proxy-intercontroller:
     image: ueisele/kafka-proxy
     build:
       context: ../../
       dockerfile: image/Dockerfile
     restart: always
-    hostname: kafka-proxy-controller
+    hostname: kafka-proxy-intercontroller
     environment:
       KAFKA_PROXY_LISTENERS: PLAINTEXT://0.0.0.0:9092,0.0.0.0:9093,0.0.0.0:9094
       KAFKA_PROXY_TARGETS: PLAINTEXT://kafka-controller1:9093,kafka-controller2:9093,kafka-controller3:9093
       KAFKA_PROXY_ROUTES: PLAINTEXT->PLAINTEXT
 
-  #############################################################
-  # Kafka Controller                                          #
-  #############################################################
+  kafka-proxy-brokercontroller:
+    image: ueisele/kafka-proxy
+    build:
+      context: ../../
+      dockerfile: image/Dockerfile
+    restart: always
+    hostname: kafka-proxy-brokercontroller
+    environment:
+      KAFKA_PROXY_LISTENERS: PLAINTEXT://0.0.0.0:9092,0.0.0.0:9093,0.0.0.0:9094
+      KAFKA_PROXY_TARGETS: PLAINTEXT://kafka-controller1:9094,kafka-controller2:9094,kafka-controller3:9094
+      KAFKA_PROXY_ROUTES: PLAINTEXT->PLAINTEXT
+
+  ###############################################################
+  # Kafka Controller                                            #
+  ###############################################################
   kafka-controller1:
     image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     restart: always
@@ -68,10 +81,11 @@ services:
       #### Server Basics ####
       KAFKA_PROCESS_ROLES: controller # (default: "") Defines in which mode the server runs and which roles it has. Valid values are 'broker', 'controller' 'broker,controller' and ''. If empty the server runs in ZooKeeper mode.
       KAFKA_NODE_ID: 1 # (default: -1, required in KRaft mode) The node id for this server.
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-proxy-controller:9092,2@kafka-proxy-controller:9093,3@kafka-proxy-controller:9094 # (required in KRaft mode) The connect string for the controller quorum
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-proxy-intercontroller:9092,2@kafka-proxy-intercontroller:9093,3@kafka-proxy-intercontroller:9094 # (required in KRaft mode) The connect string for the controller quorum
       #### Socket Server Settings ###
-      KAFKA_LISTENERS: PLAINTEXT://:9093 # (by default derived from advertised listeners) List of URIs we will listen on and the listener names. In this case, Kafka listens in both ports on all interfaces.
-      KAFKA_CONTROLLER_LISTENER_NAMES: PLAINTEXT # (required in KRaft mode) A comma-separated list of the names of the listeners used by the controller.
+      KAFKA_LISTENERS: INTER_CONTROLLER://:9093,BROKER_CONTROLLER://:9094 # (by default derived from advertised listeners) List of URIs we will listen on and the listener names. In this case, Kafka listens in both ports on all interfaces.
+      KAFKA_CONTROLLER_LISTENER_NAMES: INTER_CONTROLLER,BROKER_CONTROLLER # (required in KRaft mode) A comma-separated list of the names of the listeners used by the controller.
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTER_CONTROLLER:PLAINTEXT,BROKER_CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
 
   kafka-controller2:
     image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
@@ -86,10 +100,11 @@ services:
       #### Server Basics ####
       KAFKA_PROCESS_ROLES: controller # (default: "") Defines in which mode the server runs and which roles it has. Valid values are 'broker', 'controller' 'broker,controller' and ''. If empty the server runs in ZooKeeper mode.
       KAFKA_NODE_ID: 2 # (default: -1, required in KRaft mode) The node id for this server.
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-proxy-controller:9092,2@kafka-proxy-controller:9093,3@kafka-proxy-controller:9094 # (required in KRaft mode) The connect string for the controller quorum
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-proxy-intercontroller:9092,2@kafka-proxy-intercontroller:9093,3@kafka-proxy-intercontroller:9094 # (required in KRaft mode) The connect string for the controller quorum
       #### Socket Server Settings ###
-      KAFKA_LISTENERS: PLAINTEXT://:9093 # (by default derived from advertised listeners) List of URIs we will listen on and the listener names. In this case, Kafka listens in both ports on all interfaces.
-      KAFKA_CONTROLLER_LISTENER_NAMES: PLAINTEXT # (required in KRaft mode) A comma-separated list of the names of the listeners used by the controller.
+      KAFKA_LISTENERS: INTER_CONTROLLER://:9093,BROKER_CONTROLLER://:9094 # (by default derived from advertised listeners) List of URIs we will listen on and the listener names. In this case, Kafka listens in both ports on all interfaces.
+      KAFKA_CONTROLLER_LISTENER_NAMES: INTER_CONTROLLER,BROKER_CONTROLLER # (required in KRaft mode) A comma-separated list of the names of the listeners used by the controller.
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTER_CONTROLLER:PLAINTEXT,BROKER_CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
 
   kafka-controller3:
     image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
@@ -104,14 +119,15 @@ services:
       #### Server Basics ####
       KAFKA_PROCESS_ROLES: controller # (default: "") Defines in which mode the server runs and which roles it has. Valid values are 'broker', 'controller' 'broker,controller' and ''. If empty the server runs in ZooKeeper mode.
       KAFKA_NODE_ID: 3 # (default: -1, required in KRaft mode) The node id for this server.
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-proxy-controller:9092,2@kafka-proxy-controller:9093,3@kafka-proxy-controller:9094 # (required in KRaft mode) The connect string for the controller quorum
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-proxy-intercontroller:9092,2@kafka-proxy-intercontroller:9093,3@kafka-proxy-intercontroller:9094 # (required in KRaft mode) The connect string for the controller quorum
       #### Socket Server Settings ###
-      KAFKA_LISTENERS: PLAINTEXT://:9093 # (by default derived from advertised listeners) List of URIs we will listen on and the listener names. In this case, Kafka listens in both ports on all interfaces.
-      KAFKA_CONTROLLER_LISTENER_NAMES: PLAINTEXT # (required in KRaft mode) A comma-separated list of the names of the listeners used by the controller.
+      KAFKA_LISTENERS: INTER_CONTROLLER://:9093,BROKER_CONTROLLER://:9094 # (by default derived from advertised listeners) List of URIs we will listen on and the listener names. In this case, Kafka listens in both ports on all interfaces.
+      KAFKA_CONTROLLER_LISTENER_NAMES: INTER_CONTROLLER,BROKER_CONTROLLER # (required in KRaft mode) A comma-separated list of the names of the listeners used by the controller.
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTER_CONTROLLER:PLAINTEXT,BROKER_CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
 
-  #############################################################
-  # Kafka Broker                                              #
-  #############################################################
+  ###############################################################
+  # Kafka Broker                                                #
+  ###############################################################
   kafka-broker1:
     image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     restart: always
@@ -129,14 +145,13 @@ services:
       #### Server Basics ####
       KAFKA_PROCESS_ROLES: broker # (default: "") Defines in which mode the server runs and which roles it has. Valid values are 'broker', 'controller' 'broker,controller' and ''. If empty the server runs in ZooKeeper mode.
       KAFKA_NODE_ID: 101 # (default: -1, required in KRaft mode) The node id for this server.
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-proxy-controller:9092,2@kafka-proxy-controller:9093,3@kafka-proxy-controller:9094 # (required in KRaft mode) The connect string for the controller quorum
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-proxy-brokercontroller:9092,2@kafka-proxy-brokercontroller:9093,3@kafka-proxy-brokercontroller:9094 # (required in KRaft mode) The connect string for the controller quorum
       #### Socket Server Settings ###
-      KAFKA_LISTENERS: CLIENT://0.0.0.0:9092,INTER_BROKER://0.0.0.0:9091,CONTROL_PLANE://0.0.0.0:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
-      KAFKA_ADVERTISED_LISTENERS: CLIENT://kafka-broker1:9092,INTER_BROKER://kafka-proxy-interbroker:9092,CONTROL_PLANE://kafka-broker1:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
+      KAFKA_LISTENERS: CLIENT://0.0.0.0:9092,INTER_BROKER://0.0.0.0:9091 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
+      KAFKA_ADVERTISED_LISTENERS: CLIENT://kafka-broker1:9092,INTER_BROKER://kafka-proxy-interbroker:9092 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
       KAFKA_INTER_BROKER_LISTENER_NAME: INTER_BROKER
-      KAFKA_CONTROL_PLANE_LISTENER_NAME: CONTROL_PLANE
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER # (required in KRaft mode) The listeners used by the controller to define the security protocol.
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CLIENT:PLAINTEXT,INTER_BROKER:PLAINTEXT,CONTROL_PLANE:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CLIENT:PLAINTEXT,INTER_BROKER:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
 
   kafka-broker2:
     image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
@@ -155,14 +170,13 @@ services:
       #### Server Basics ####
       KAFKA_PROCESS_ROLES: broker # (default: "") Defines in which mode the server runs and which roles it has. Valid values are 'broker', 'controller' 'broker,controller' and ''. If empty the server runs in ZooKeeper mode.
       KAFKA_NODE_ID: 102 # (default: -1, required in KRaft mode) The node id for this server.
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-proxy-controller:9092,2@kafka-proxy-controller:9093,3@kafka-proxy-controller:9094 # (required in KRaft mode) The connect string for the controller quorum
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-proxy-brokercontroller:9092,2@kafka-proxy-brokercontroller:9093,3@kafka-proxy-brokercontroller:9094 # (required in KRaft mode) The connect string for the controller quorum
       #### Socket Server Settings ###
-      KAFKA_LISTENERS: CLIENT://0.0.0.0:9092,INTER_BROKER://0.0.0.0:9091,CONTROL_PLANE://0.0.0.0:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
-      KAFKA_ADVERTISED_LISTENERS: CLIENT://kafka-broker2:9092,INTER_BROKER://kafka-proxy-interbroker:9093,CONTROL_PLANE://kafka-broker2:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
+      KAFKA_LISTENERS: CLIENT://0.0.0.0:9092,INTER_BROKER://0.0.0.0:9091 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
+      KAFKA_ADVERTISED_LISTENERS: CLIENT://kafka-broker2:9092,INTER_BROKER://kafka-proxy-interbroker:9093 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
       KAFKA_INTER_BROKER_LISTENER_NAME: INTER_BROKER
-      KAFKA_CONTROL_PLANE_LISTENER_NAME: CONTROL_PLANE
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER # (required in KRaft mode) The listeners used by the controller to define the security protocol.
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CLIENT:PLAINTEXT,INTER_BROKER:PLAINTEXT,CONTROL_PLANE:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CLIENT:PLAINTEXT,INTER_BROKER:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
 
   kafka-broker3:
     image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
@@ -181,18 +195,17 @@ services:
       #### Server Basics ####
       KAFKA_PROCESS_ROLES: broker # (default: "") Defines in which mode the server runs and which roles it has. Valid values are 'broker', 'controller' 'broker,controller' and ''. If empty the server runs in ZooKeeper mode.
       KAFKA_NODE_ID: 103 # (default: -1, required in KRaft mode) The node id for this server.
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-proxy-controller:9092,2@kafka-proxy-controller:9093,3@kafka-proxy-controller:9094 # (required in KRaft mode) The connect string for the controller quorum
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-proxy-brokercontroller:9092,2@kafka-proxy-brokercontroller:9093,3@kafka-proxy-brokercontroller:9094 # (required in KRaft mode) The connect string for the controller quorum
       #### Socket Server Settings ###
-      KAFKA_LISTENERS: CLIENT://0.0.0.0:9092,INTER_BROKER://0.0.0.0:9091,CONTROL_PLANE://0.0.0.0:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
-      KAFKA_ADVERTISED_LISTENERS: CLIENT://kafka-broker3:9092,INTER_BROKER://kafka-proxy-interbroker:9094,CONTROL_PLANE://kafka-broker3:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
+      KAFKA_LISTENERS: CLIENT://0.0.0.0:9092,INTER_BROKER://0.0.0.0:9091 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
+      KAFKA_ADVERTISED_LISTENERS: CLIENT://kafka-broker3:9092,INTER_BROKER://kafka-proxy-interbroker:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
       KAFKA_INTER_BROKER_LISTENER_NAME: INTER_BROKER
-      KAFKA_CONTROL_PLANE_LISTENER_NAME: CONTROL_PLANE
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER # (required in KRaft mode) The listeners used by the controller to define the security protocol.
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CLIENT:PLAINTEXT,INTER_BROKER:PLAINTEXT,CONTROL_PLANE:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CLIENT:PLAINTEXT,INTER_BROKER:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
 
-  #############################################################
-  # Kafka CLI                                                 #
-  #############################################################
+  ###############################################################
+  # Kafka CLI                                                   #
+  ###############################################################
   kafka-cli:
     image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     hostname: kafka-cli
