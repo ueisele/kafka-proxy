@@ -6,8 +6,8 @@ import net.uweeisele.kafka.proxy.config.KafkaProxyConfig
 import net.uweeisele.kafka.proxy.filter.{AdvertisedListenerRewriteFilter, AdvertisedListenerTable}
 import net.uweeisele.kafka.proxy.forward.{RequestForwarder, RouteTable}
 import net.uweeisele.kafka.proxy.network.SocketServer
-import net.uweeisele.kafka.proxy.request.{ApiRequestHandlerChain, RequestHandlerPool}
-import net.uweeisele.kafka.proxy.response.{ApiResponseHandlerChain, ResponseHandlerPool}
+import net.uweeisele.kafka.proxy.request.{ApiRequestHandler, ApiRequestHandlerChain, RequestHandlerPool}
+import net.uweeisele.kafka.proxy.response.{ApiResponseHandler, ApiResponseHandlerChain, ResponseHandlerPool}
 import org.apache.kafka.common.protocol.ApiKeys
 import org.apache.kafka.common.utils.Time
 
@@ -52,12 +52,12 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
         socketServer = new SocketServer(proxyConfig, time)
         socketServer.startup(startProcessingRequests = false)
 
-        def routeTable = new RouteTable(proxyConfig.routes, proxyConfig.listeners, proxyConfig.targets)
+        val routeTable = new RouteTable(proxyConfig.routes, proxyConfig.listeners, proxyConfig.targets)
         requestForwarder = new RequestForwarder(proxyConfig, routeTable, time)
         requestForwarder.startup()
         socketServer.addConnectionListener(requestForwarder)
 
-        def apiRequestHandlerChain = new ApiRequestHandlerChain(Seq(
+        val apiRequestHandlerChain = new ApiRequestHandlerChain(Seq[ApiRequestHandler](
           request => { request.header.apiKey match {
             case ApiKeys.FETCH => None
             case ApiKeys.BROKER_HEARTBEAT => None
@@ -66,8 +66,8 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
         requestHandlerPool = new RequestHandlerPool(socketServer.requestChannel, apiRequestHandlerChain, proxyConfig.numRequestHandlerThreads)
         requestHandlerPool.start()
 
-        def advertisedListenerTable = new AdvertisedListenerTable(proxyConfig.listeners, proxyConfig.advertisedListeners)
-        def apiResponseHandlerChain = new ApiResponseHandlerChain(Seq(
+        val advertisedListenerTable = new AdvertisedListenerTable(proxyConfig.listeners, proxyConfig.advertisedListeners)
+        val apiResponseHandlerChain = new ApiResponseHandlerChain(Seq[ApiResponseHandler](
           new AdvertisedListenerRewriteFilter(routeTable, advertisedListenerTable),
           response => { response.request.header.apiKey match {
             case ApiKeys.FETCH => None

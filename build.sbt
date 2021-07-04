@@ -3,8 +3,7 @@ name := "kafka-proxy"
 version := "0.1"
 
 scalaVersion := "2.13.6"
-//crossScalaVersions := Seq("2.13.6", "3.0.0-RC1")
-crossScalaVersions := Seq("2.13.6")
+crossScalaVersions := Seq("2.13.6", "3.0.0")
 
 scalacOptions ++= {
   Seq("-encoding", "UTF-8")
@@ -17,7 +16,7 @@ javacOptions ++= Seq("-source", "16", "-target", "16")
 
 libraryDependencies ++= Seq(
   "org.apache.kafka" % "kafka-clients" % "2.8.0",
-  "com.typesafe.scala-logging" %% "scala-logging" % "3.9.3",
+  "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4",
   "org.apache.logging.log4j" % "log4j-slf4j-impl" % "2.14.1",
   "com.fasterxml.jackson.core" % "jackson-databind" % "2.12.3",
   "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % "2.12.3",

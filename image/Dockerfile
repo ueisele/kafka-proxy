@@ -24,7 +24,7 @@ WORKDIR /work
 COPY ./ ./
 
 RUN ./sbtx +clean +assembly
-ARG SCALA_VERSION=2.13
+ARG SCALA_VERSION=3.0.0
 RUN cp target/scala-${SCALA_VERSION}/kafka-proxy-assembly-*.jar kafka-proxy.jar
 
 FROM registry.access.redhat.com/ubi8/ubi-minimal:8.4

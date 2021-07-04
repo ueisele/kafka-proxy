@@ -404,7 +404,7 @@ class KafkaProxyConfig(val props: java.util.Map[_, _], doLog: Boolean) extends A
     if (csvList == null || csvList.isEmpty)
       Seq.empty[String]
     else
-      csvList.split("\\s*;\\s*").filter(v => !v.equals(""))
+      csvList.split("\\s*;\\s*").toIndexedSeq.filter(v => !v.equals(""))
   }
 
   private def getSecurityProtocol(protocolName: String, configName: String): SecurityProtocol = {
