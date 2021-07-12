@@ -23,6 +23,14 @@ libraryDependencies ++= Seq(
   "net.sf.jopt-simple" % "jopt-simple" % "5.0.4"
 )
 
+libraryDependencies ++= Seq(
+  "io.micrometer" % "micrometer-core" % "1.7.1",
+  "io.micrometer" % "micrometer-registry-jmx" % "1.7.1",
+  "io.micrometer" % "micrometer-registry-prometheus" % "1.7.1",
+  "io.prometheus.jmx" % "collector" % "0.16.0",
+  "io.prometheus" % "simpleclient_httpserver" % "0.11.0"
+)
+
 val proxyMainClass = "net.uweeisele.kafka.proxy.KafkaProxyStartable"
 
 Compile / mainClass := Some(proxyMainClass)

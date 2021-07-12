@@ -13,7 +13,7 @@ import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.jdk.CollectionConverters._
 
 class SocketServer(val config: KafkaProxyConfig,
-                   val time: Time) extends LazyLogging{
+                   val time: Time) extends LazyLogging {
 
   private val logContext = new LogContext(s"[SocketServer] ")
 

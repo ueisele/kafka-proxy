@@ -1,12 +1,14 @@
-package net.uweeisele.kafka.proxy.filter
+package net.uweeisele.kafka.proxy.filter.advertisedlistener
+
+import com.typesafe.scalalogging.LazyLogging
+import net.uweeisele.kafka.proxy.filter.ResponseFilter
 import net.uweeisele.kafka.proxy.forward.RouteTable
 import net.uweeisele.kafka.proxy.network.RequestChannel
-import org.apache.kafka.common.KafkaException
 import org.apache.kafka.common.network.ListenerName
 import org.apache.kafka.common.requests.{FindCoordinatorResponse, MetadataResponse}
 
 class AdvertisedListenerRewriteFilter(routeTable: RouteTable,
-                                      advertisedListenerTable: AdvertisedListenerTable) extends ResponseFilter {
+                                      advertisedListenerTable: AdvertisedListenerTable) extends ResponseFilter with LazyLogging {
 
   override def handle(response: RequestChannel.SendResponse): Unit = {
     response.response match {
@@ -26,7 +28,7 @@ class AdvertisedListenerRewriteFilter(routeTable: RouteTable,
         case Some(endpoint) =>
           broker.setHost(endpoint.host)
           broker.setPort(endpoint.port)
-        case None => throw new KafkaException(s"Broker ${broker.host()}:${broker.port()} is unknown for target ${targetListenerName.value}.")
+        case None => logger.warn(s"Broker ${broker.host()}:${broker.port()} is unknown for target ${targetListenerName.value}.")
       }
     }
   }
@@ -39,7 +41,7 @@ class AdvertisedListenerRewriteFilter(routeTable: RouteTable,
         case Some(endpoint) =>
           findCoordinatorResponse.data().setHost(endpoint.host)
           findCoordinatorResponse.data().setPort(endpoint.port)
-        case None => throw new KafkaException(s"Broker ${findCoordinatorResponse.data().host()}:${findCoordinatorResponse.data().port()} is unknown!")
+        case None => logger.warn(s"Broker ${findCoordinatorResponse.data().host()}:${findCoordinatorResponse.data().port()} is unknown!")
       }
     }
   }

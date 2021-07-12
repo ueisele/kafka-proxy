@@ -1,0 +1,110 @@
+expose_clusters:
+  - name: internal
+    type: net.uweeisele.kafka.proxy.listener.Static
+    security_protocol: plaintext
+    listeners:
+      - address: 0.0.0.0
+        port: 9092
+      - address: 0.0.0.0
+        port: 9093
+      - address: 0.0.0.0
+        port: 9094
+    filter_chain: default
+
+  - name: external
+    type: net.uweeisele.kafka.proxy.listener.Static
+    security_protocol: plaintext
+    listeners:
+      - address: 0.0.0.0
+        port: 19092
+      - address: 0.0.0.0
+        port: 19093
+      - address: 0.0.0.0
+        port: 19094
+    filter_chain: default
+
+  - name: dynamic_port
+    type: net.uweeisele.kafka.proxy.listener.DynamicPort
+    security_protocol: plaintext
+    listeners:
+      target_cluster: default
+      address_template:
+        address: 0.0.0.0
+        port: { { 29091 + brokerId } }
+    filter_chain: default
+
+  - name: sni
+    type: net.uweeisele.kafka.proxy.listener.Static
+    security_protocol: tls
+    config:
+      hostname_certificate_mapping:
+        "*.default.cluster":
+          tls.keystore.type: PEM
+          tls.keystore.filename: kafka-proxy.proxy.keystore.pem
+          tls.key.credentials: kafka-proxy.proxy.key.credentials
+    listeners:
+      - address: 0.0.0.0
+        port: 39092
+    filter_chain: default
+
+
+filter_chains:
+  - name: default
+    filters:
+      - name: logger
+        type: net.uweeisele.kafka.proxy.filter.Logger
+        config:
+          blocklist:
+            - FETCH
+            - BROKER_HEARTBEAT
+      - name: advertised_lListener_rewrite
+        type: net.uweeisele.kafka.proxy.filter.AdvertisedListenerRewrite
+        route_table: default
+        advertised_clusters:
+          - name: internal
+            type: net.uweeisele.kafka.proxy.filter.advertisedlistener.DirectStatic
+            expose_cluster: internal
+            advertised_listeners:
+              - address: { { hostname } }
+                port: 9092
+              - address: { { hostname } }
+                port: 9093
+              - address: { { hostname } }
+                port: 9094
+      - name: request_forwarder
+        type: net.uweeisele.kafka.proxy.filter.RequestForwarder
+        route_table: default
+
+
+route_tables:
+  - name: default
+    type: net.uweeisele.kafka.proxy.route.DirectExposeTarget
+    route:
+      - expose_cluster: internal
+        target_cluster: default
+      - expose_cluster: external
+        target_cluster: default
+
+
+target_clusters:
+  - name: default
+    type: net.uweeisele.kafka.proxy.target.Static
+    security_protocol: plaintext
+    endpoints:
+      - address: kafka-broker1
+        port: 9092
+      - address: kafka-broker2
+        port: 9092
+      - address: kafka-broker3
+        port: 9092
+
+  - name: dynamic
+    type: net.uweeisele.kafka.proxy.target.Dynamic
+    security_protocol: plaintext
+    bootstrap_endpoints:
+      - address: kafka-broker1
+        port: 9092
+      - address: kafka-broker2
+        port: 9092
+      - address: kafka-broker3
+        port: 9092

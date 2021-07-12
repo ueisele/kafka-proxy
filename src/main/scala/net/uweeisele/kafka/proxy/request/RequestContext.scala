@@ -8,6 +8,7 @@ import org.apache.kafka.server.authorizer.AuthorizableRequestContext
 import java.net.{InetAddress, InetSocketAddress}
 import java.nio.ByteBuffer
 import java.util.Optional
+import scala.collection.mutable
 
 class RequestContext(val header: RequestHeader,
                      val connectionId: String,
@@ -17,7 +18,8 @@ class RequestContext(val header: RequestHeader,
                      val listenerNameRef: ListenerName,
                      override val securityProtocol: SecurityProtocol,
                      val clientInformation: ClientInformation,
-                     principalSerde: Optional[KafkaPrincipalSerde])
+                     principalSerde: Optional[KafkaPrincipalSerde],
+                     val variables: mutable.Map[String, Any] = mutable.Map())
   extends AuthorizableRequestContext {
 
     private val internalContext = new JRequestContext(

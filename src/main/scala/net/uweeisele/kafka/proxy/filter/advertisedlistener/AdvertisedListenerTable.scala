@@ -1,4 +1,4 @@
-package net.uweeisele.kafka.proxy.filter
+package net.uweeisele.kafka.proxy.filter.advertisedlistener
 
 import net.uweeisele.kafka.proxy.config.{Binding, Endpoint}
 import net.uweeisele.kafka.proxy.forward.RouteEndpoint
