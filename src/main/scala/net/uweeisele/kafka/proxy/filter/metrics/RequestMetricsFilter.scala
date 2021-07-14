@@ -1,7 +1,7 @@
 package net.uweeisele.kafka.proxy.filter.metrics
 
 import com.typesafe.scalalogging.LazyLogging
-import io.micrometer.core.instrument.{Counter, MeterRegistry, Timer}
+import io.micrometer.core.instrument.{Counter, Meter, MeterRegistry, Timer}
 import net.uweeisele.kafka.proxy.filter.{RequestFilter, ResponseFilter}
 import net.uweeisele.kafka.proxy.network.RequestChannel
 import org.apache.kafka.common.network.ListenerName
@@ -20,8 +20,8 @@ class RequestMetricsFilter(exposeListeners: Seq[ListenerName],
   private val requestCounters = ApiKeys.values().flatMap(apiKey => exposeListeners.map(listener => (apiKey, listener))).map {
     case (apiKey: ApiKeys, listener: ListenerName) =>
       (apiKey, listener) -> Counter.builder(s"$prefix.requests")
-        .tag("apiKeyId", apiKey.id.toString)
-        .tag("apiKeyName", apiKey.name)
+        .tag("apiKey", apiKey.id.toString)
+        .tag("apiName", apiKey.name)
         .tag("exposeListenerName", listener.value())
         .register(meterRegistry)
     } toMap
@@ -29,8 +29,8 @@ class RequestMetricsFilter(exposeListeners: Seq[ListenerName],
   private val responseCounters = ApiKeys.values().flatMap(apiKey => exposeListeners.flatMap(el => targetListeners.map(tl => (apiKey, el, tl)))).map {
     case (apiKey: ApiKeys, exposedListener: ListenerName, targetListener: ListenerName) =>
       (apiKey, exposedListener, targetListener) -> Counter.builder(s"$prefix.responses")
-        .tag("apiKeyId", apiKey.id.toString)
-        .tag("apiKeyName", apiKey.name)
+        .tag("apiKey", apiKey.id.toString)
+        .tag("apiName", apiKey.name)
         .tag("exposeListenerName", exposedListener.value())
         .tag("targetListenerName", targetListener.value())
         .register(meterRegistry)
@@ -39,12 +39,12 @@ class RequestMetricsFilter(exposeListeners: Seq[ListenerName],
   private val responseDurations = ApiKeys.values().flatMap(apiKey => exposeListeners.flatMap(el => targetListeners.map(tl => (apiKey, el, tl)))).map {
     case (apiKey: ApiKeys, exposedListener: ListenerName, targetListener: ListenerName) =>
       (apiKey, exposedListener, targetListener) -> Timer.builder(s"$prefix.responses.duration")
-        .tag("apiKeyId", apiKey.id.toString)
-        .tag("apiKeyName", apiKey.name)
+        .tag("apiKey", apiKey.id.toString)
+        .tag("apiName", apiKey.name)
         .tag("exposeListenerName", exposedListener.value())
         .tag("targetListenerName", targetListener.value())
         .distributionStatisticExpiry(Duration.create(300, SECONDS).toJava)
-        .publishPercentileHistogram()
+        .publishPercentiles(0.25, 0.5, 0.6, 0.75, 0.8, 0.9, 0.95, 0.97, 0.99)
         .register(meterRegistry)
       } toMap
 
@@ -73,18 +73,6 @@ class RequestMetricsFilter(exposeListeners: Seq[ListenerName],
     }
   }
 
-  override def close(): Unit = {
-    requestCounters.foreach { case (_, counter) =>
-      meterRegistry.remove(counter)
-    }
-    responseCounters.foreach { case (_, counter) =>
-      meterRegistry.remove(counter)
-    }
-    responseDurations.foreach { case (_, counter) =>
-      meterRegistry.remove(counter)
-    }
-  }
-
   private def measureDuration(request: RequestChannel.Request): FiniteDuration = {
     request.context.variables.get(s"${getClass.getName}:responses.duration") match {
       case Some(startMs: Long) => (System.currentTimeMillis - startMs, MILLISECONDS)
@@ -93,4 +81,17 @@ class RequestMetricsFilter(exposeListeners: Seq[ListenerName],
         Duration.Zero
     }
   }
+
+  override def close(): Unit = {
+    close(requestCounters)
+    close(responseCounters)
+    close(responseDurations)
+  }
+
+  private def close[K,M<:Meter](meterMap: Map[K, M]): Unit = {
+    meterMap.foreach { case (_, meter: Meter) =>
+      meterRegistry.remove(meter)
+    }
+  }
+
 }

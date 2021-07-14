@@ -2,13 +2,11 @@ package net.uweeisele.kafka.proxy
 
 
 import com.typesafe.scalalogging.LazyLogging
-import io.micrometer.core.instrument.{Clock, Metrics}
-import io.micrometer.jmx.{JmxConfig, JmxMeterRegistry}
-import io.prometheus.client.CollectorRegistry
-import io.prometheus.jmx.JmxCollector
+import io.micrometer.core.instrument.Metrics
+import io.micrometer.prometheus.{PrometheusConfig, PrometheusMeterRegistry}
 import net.uweeisele.kafka.proxy.config.KafkaProxyConfig
 import net.uweeisele.kafka.proxy.filter.advertisedlistener.{AdvertisedListenerRewriteFilter, AdvertisedListenerTable}
-import net.uweeisele.kafka.proxy.filter.metrics.RequestMetricsFilter
+import net.uweeisele.kafka.proxy.filter.metrics.{ClientRequestMetricsFilter, RequestMetricsFilter}
 import net.uweeisele.kafka.proxy.forward.{RequestForwarder, RouteTable}
 import net.uweeisele.kafka.proxy.network.SocketServer
 import net.uweeisele.kafka.proxy.request.{ApiRequestHandler, ApiRequestHandlerChain, RequestHandlerPool}
@@ -19,9 +17,9 @@ import org.apache.kafka.common.utils.Time
 
 import java.net.InetSocketAddress
 import java.util.Properties
-import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit.MINUTES
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.concurrent.atomic.AtomicBoolean
-import scala.util.Using
 
 object KafkaProxy {
   def fromProps(serverProps: Properties): KafkaProxy = {
@@ -38,6 +36,7 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
   private var shutdownLatch = new CountDownLatch(1)
 
   private var metricsHttpServer: HttpServer = null
+  private var metricsFilter: ClientRequestMetricsFilter = null
   private var socketServer: SocketServer = null
   private var requestHandlerPool: RequestHandlerPool = null
   private var requestForwarder: RequestForwarder = null
@@ -55,22 +54,25 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
 
       val canStartup = isStartingUp.compareAndSet(false, true)
       if (canStartup) {
-        val jmxMeterRegistry = new JmxMeterRegistry(JmxConfig.DEFAULT, Clock.SYSTEM)
-        Metrics.addRegistry(jmxMeterRegistry)
+        //val jmxMeterRegistry = new JmxMeterRegistry(JmxConfig.DEFAULT, Clock.SYSTEM)
+        //Metrics.addRegistry(jmxMeterRegistry)
+        val prometheusMeterRegistry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
+        Metrics.addRegistry(prometheusMeterRegistry)
 
-        val jmxCollector = Using(getClass.getClassLoader.getResourceAsStream("prometheus-jmx.yaml"))(new JmxCollector(_)).get
-        jmxCollector.register(CollectorRegistry.defaultRegistry)
+        //val jmxCollector = Using(getClass.getClassLoader.getResourceAsStream("prometheus-jmx.yaml"))(new JmxCollector(_)).get
+        //jmxCollector.register(CollectorRegistry.defaultRegistry)
         metricsHttpServer = new HttpServer(new InetSocketAddress(8080), 10, 2, "metrics-http-server")
-          .addHandler("/metrics", new PrometheusMetricsHttpHandler(CollectorRegistry.defaultRegistry))
+          .addHandler("/metrics", new PrometheusMetricsHttpHandler(prometheusMeterRegistry.getPrometheusRegistry))
           .start()
+
+        //metricsFilter = new RequestMetricsFilter(proxyConfig.routes.keySet.toSeq, proxyConfig.routes.values.toSet.toSeq, Metrics.globalRegistry)
+        metricsFilter = new ClientRequestMetricsFilter(Metrics.globalRegistry, "kafka", (5, MINUTES))
 
         // Create and start the socket server acceptor threads so that the bound port is known.
         // Delay starting processors until the end of the initialization sequence to ensure
         // that credentials have been loaded before processing authentications.
         socketServer = new SocketServer(proxyConfig, time)
         socketServer.startup(startProcessingRequests = false)
-
-        val metricsFilter = new RequestMetricsFilter(proxyConfig.routes.keySet.toSeq, proxyConfig.routes.values.toSet.toSeq, Metrics.globalRegistry)
 
         val routeTable = new RouteTable(proxyConfig.routes, proxyConfig.listeners, proxyConfig.targets)
         requestForwarder = new RequestForwarder(proxyConfig, routeTable, time)
@@ -150,6 +152,11 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
         if (metricsHttpServer != null) {
           try {metricsHttpServer.shutdown()} catch { case e: Throwable => logger.error(e.getMessage, e) }
         }
+
+        if (metricsFilter != null) {
+          try {metricsFilter.close()} catch { case e: Throwable => logger.error(e.getMessage, e) }
+        }
+
         Metrics.globalRegistry.close()
 
         startupComplete.set(false)
