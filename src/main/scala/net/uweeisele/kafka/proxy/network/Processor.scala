@@ -2,7 +2,6 @@ package net.uweeisele.kafka.proxy.network
 
 import net.uweeisele.kafka.proxy.network.Processor.ConnectionQueueSize
 import net.uweeisele.kafka.proxy.network.RequestChannel._
-import net.uweeisele.kafka.proxy.request.RequestContext
 import org.apache.kafka.common.KafkaException
 import org.apache.kafka.common.config.AbstractConfig
 import org.apache.kafka.common.memory.MemoryPool
@@ -208,8 +207,7 @@ class Processor(val id: Int,
               } else {
                 val connectionId = receive.source
                 val context = new RequestContext(header, connectionId, remoteAddressFromChannel(channel), localAddressFromChannel(channel),
-                  channel.principal, listenerName, securityProtocol,
-                  channel.channelMetadataRegistry.clientInformation, channel.principalSerde())
+                  channel.principal, channel.principalSerde, listenerName, securityProtocol)
                 val req = new RequestChannel.Request(processor = id, context = context,
                   startTimeNanos = nowNanos, memoryPool, receive.payload)
                 // KIP-511: ApiVersionsRequest is intercepted here to catch the client software name
@@ -222,6 +220,7 @@ class Processor(val id: Int,
                       apiVersionsRequest.data.clientSoftwareVersion))
                   }
                 }
+                context.clientInformation = channel.channelMetadataRegistry.clientInformation
                 requestChannel.sendRequest(req)
                 selector.mute(connectionId)
                 handleChannelMuteEvent(connectionId, ChannelMuteEvent.REQUEST_RECEIVED)

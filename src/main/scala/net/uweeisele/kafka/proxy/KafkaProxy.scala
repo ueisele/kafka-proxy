@@ -3,10 +3,11 @@ package net.uweeisele.kafka.proxy
 
 import com.typesafe.scalalogging.LazyLogging
 import io.micrometer.core.instrument.Metrics
+import io.micrometer.core.instrument.util.NamedThreadFactory
 import io.micrometer.prometheus.{PrometheusConfig, PrometheusMeterRegistry}
 import net.uweeisele.kafka.proxy.config.KafkaProxyConfig
 import net.uweeisele.kafka.proxy.filter.advertisedlistener.{AdvertisedListenerRewriteFilter, AdvertisedListenerTable}
-import net.uweeisele.kafka.proxy.filter.metrics.{ClientRequestMetricsFilter, RequestMetricsFilter}
+import net.uweeisele.kafka.proxy.filter.metrics.ClientRequestMetricsFilter
 import net.uweeisele.kafka.proxy.forward.{RequestForwarder, RouteTable}
 import net.uweeisele.kafka.proxy.network.SocketServer
 import net.uweeisele.kafka.proxy.request.{ApiRequestHandler, ApiRequestHandlerChain, RequestHandlerPool}
@@ -18,8 +19,9 @@ import org.apache.kafka.common.utils.Time
 import java.net.InetSocketAddress
 import java.util.Properties
 import java.util.concurrent.TimeUnit.MINUTES
-import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.{CountDownLatch, Executors, ScheduledExecutorService}
+import scala.concurrent.duration.Duration
 
 object KafkaProxy {
   def fromProps(serverProps: Properties): KafkaProxy = {
@@ -35,8 +37,11 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
 
   private var shutdownLatch = new CountDownLatch(1)
 
+  private var evictionScheduler: ScheduledExecutorService = null
+
   private var metricsHttpServer: HttpServer = null
   private var metricsFilter: ClientRequestMetricsFilter = null
+
   private var socketServer: SocketServer = null
   private var requestHandlerPool: RequestHandlerPool = null
   private var requestForwarder: RequestForwarder = null
@@ -54,6 +59,8 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
 
       val canStartup = isStartingUp.compareAndSet(false, true)
       if (canStartup) {
+        evictionScheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("eviction"))
+
         //val jmxMeterRegistry = new JmxMeterRegistry(JmxConfig.DEFAULT, Clock.SYSTEM)
         //Metrics.addRegistry(jmxMeterRegistry)
         val prometheusMeterRegistry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
@@ -66,7 +73,8 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
           .start()
 
         //metricsFilter = new RequestMetricsFilter(proxyConfig.routes.keySet.toSeq, proxyConfig.routes.values.toSet.toSeq, Metrics.globalRegistry)
-        metricsFilter = new ClientRequestMetricsFilter(Metrics.globalRegistry, "kafka", (5, MINUTES))
+        metricsFilter = new ClientRequestMetricsFilter(Metrics.globalRegistry, "kafka", Duration(5, MINUTES))
+        evictionScheduler.scheduleAtFixedRate(() => metricsFilter.evict(), 5, 1, MINUTES)
 
         // Create and start the socket server acceptor threads so that the bound port is known.
         // Delay starting processors until the end of the initialization sequence to ensure
@@ -158,6 +166,10 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
         }
 
         Metrics.globalRegistry.close()
+
+        if (evictionScheduler != null) {
+          evictionScheduler.shutdownNow()
+        }
 
         startupComplete.set(false)
         isShuttingDown.set(false)

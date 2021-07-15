@@ -1,8 +1,7 @@
 package net.uweeisele.kafka.proxy.forward
 
 import net.uweeisele.kafka.proxy.network.RequestChannel._
-import net.uweeisele.kafka.proxy.network.{AbstractServerThread, ChannelBuilderBuilder, RequestChannel}
-import net.uweeisele.kafka.proxy.request.RequestContext
+import net.uweeisele.kafka.proxy.network.{AbstractServerThread, ChannelBuilderBuilder, RequestChannel, RequestContext}
 import org.apache.kafka.common.KafkaException
 import org.apache.kafka.common.config.AbstractConfig
 import org.apache.kafka.common.memory.MemoryPool
@@ -12,14 +11,13 @@ import org.apache.kafka.common.protocol.types.SchemaException
 import org.apache.kafka.common.requests.{AbstractRequest, AbstractResponse, CorrelationIdMismatchException, RequestHeader}
 import org.apache.kafka.common.security.auth.SecurityProtocol
 import org.apache.kafka.common.security.authenticator.SaslClientAuthenticator
-import org.apache.kafka.common.utils.{LogContext, Time}
+import org.apache.kafka.common.utils.{AppInfoParser, LogContext, Time}
 
 import java.io.IOException
 import java.net.{InetSocketAddress, SocketAddress}
 import java.nio.channels.SocketChannel
 import java.nio.{BufferUnderflowException, ByteBuffer}
-import java.util
-import java.util.concurrent.{ConcurrentLinkedQueue, LinkedBlockingDeque}
+import java.util.concurrent.ConcurrentLinkedQueue
 import scala.collection.{Map, mutable}
 import scala.jdk.CollectionConverters._
 import scala.util.control.ControlThrowable
@@ -28,6 +26,8 @@ sealed trait Command {val connectionId: String}
 case class SendRequest(override val connectionId: String, request: RequestChannel.Request) extends Command
 case class Connect(override val connectionId: String, address: InetSocketAddress) extends Command
 case class Disconnect(override val connectionId: String) extends Command
+
+object LocalClientInformation extends ClientInformation("apache-kafka-java", AppInfoParser.getVersion);
 
 class Processor(val id: Int,
                 val forwardChannel: ForwardChannel,
@@ -227,10 +227,9 @@ class Processor(val id: Int,
               req.header.apiKey, req.connectionId, req.header, response)
           }
 
-          val forwardContext = new RequestContext(req.header, req.connectionId, remoteAddressFromChannel(channel), localAddressFromChannel(channel),
-            channel.principal, listenerName, securityProtocol,
-            channel.channelMetadataRegistry.clientInformation, channel.principalSerde())
-          val channelResponse = new SendResponse(req.request, response, forwardContext, req.onCompleteCallback)
+          val responseContext = new ResponseContext(remoteAddressFromChannel(channel), localAddressFromChannel(channel),
+            channel.principal, channel.principalSerde, listenerName, securityProtocol, LocalClientInformation)
+          val channelResponse = new SendResponse(req.request, response, responseContext, req.onCompleteCallback)
           forwardChannel.sendResponse(channelResponse)
 
         case None =>

@@ -33,6 +33,7 @@ package net.uweeisele.kafka.proxy.forward
 
 import net.uweeisele.kafka.proxy.network.RequestChannel
 import org.apache.kafka.common.network.Send
+import org.apache.kafka.common.requests.RequestHeader
 
 import java.util
 import java.util._
@@ -45,11 +46,12 @@ class InFlightRequest(val request: RequestChannel.Request,
                       val sendTimeNanos: Long,
                       val requestTimeoutMs: Long) {
 
-  val header = request.header
-  val createdTimeNanos = request.startTimeNanos
   private var sent = false
 
-  def isSent(): Boolean = sent
+  val header: RequestHeader = request.header
+  val createdTimeNanos: Long = request.startTimeNanos
+
+  def isSent: Boolean = sent
 
   def setSent(): Unit = sent = true
 
@@ -68,7 +70,7 @@ class InFlightRequest(val request: RequestChannel.Request,
  * The set of requests which have been sent or are being sent but haven't yet received a response
  */
 class InFlightRequests {
-  private val requests = new HashMap[String, Deque[InFlightRequest]]
+  private val requests = new util.HashMap[String, util.Deque[InFlightRequest]]
   /** Thread safe total number of in flight requests. */
   private val inFlightRequestCount = new AtomicInteger(0)
 
@@ -79,7 +81,7 @@ class InFlightRequests {
     val connectionId = request.connectionId
     var reqs = this.requests.get(connectionId)
     if (reqs == null) {
-      reqs = new ArrayDeque[InFlightRequest]
+      reqs = new util.ArrayDeque[InFlightRequest]
       this.requests.put(connectionId, reqs)
     }
     reqs.addFirst(request)
@@ -98,7 +100,7 @@ class InFlightRequests {
   def connections: util.Set[String] = requests.keySet()
 
   def unset(connectionId: String): util.stream.Stream[InFlightRequest] = {
-    requests.get(connectionId).stream().filter( request => !request.isSent())
+    requests.get(connectionId).stream().filter( request => !request.isSent)
   }
 
   /**
@@ -182,7 +184,7 @@ class InFlightRequests {
     }
   }
 
-  private def hasExpiredRequest(nowNanos: Long, deque: Deque[InFlightRequest]): Boolean = {
+  private def hasExpiredRequest(nowNanos: Long, deque: util.Deque[InFlightRequest]): Boolean = {
     import scala.jdk.CollectionConverters._
     for (request <- deque.asScala) {
       val timeSinceSend = Math.max(0, nowNanos - request.createdTimeNanos) / 1000000

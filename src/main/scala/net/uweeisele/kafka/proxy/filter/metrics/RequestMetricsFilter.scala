@@ -50,26 +50,26 @@ class RequestMetricsFilter(exposeListeners: Seq[ListenerName],
 
   override def handle(request: RequestChannel.Request): Unit = {
     request.context.variables(s"${getClass.getName}:responses.duration") = System.currentTimeMillis
-    requestCounters.get((request.header.apiKey, request.context.listenerNameRef)) match {
+    requestCounters.get((request.header.apiKey, request.context.listenerName)) match {
       case Some(counter) => counter.increment()
-      case None => logger.info(s"ApiKey ${request.header.apiKey.name} or listener ${request.context.listenerNameRef.value} is unknown.")
+      case None => logger.info(s"ApiKey ${request.header.apiKey.name} or listener ${request.context.listenerName.value} is unknown.")
     }
   }
 
   override def handle(response: RequestChannel.SendResponse): Unit = {
-    responseCounters.get((response.response.apiKey, response.request.context.listenerNameRef, response.forwardContext.listenerNameRef)) match {
+    responseCounters.get((response.response.apiKey, response.request.context.listenerName, response.responseContext.listenerName)) match {
       case Some(counter) => counter.increment()
       case None => logger.info(
         s"ApiKey ${response.response.apiKey.name} or " +
-          s"expose listener ${response.request.context.listenerNameRef.value} " +
-          s"or target listener ${response.forwardContext.listenerNameRef.value} is unknown.")
+          s"expose listener ${response.request.context.listenerName.value} " +
+          s"or target listener ${response.responseContext.listenerName.value} is unknown.")
     }
-    responseDurations.get((response.response.apiKey, response.request.context.listenerNameRef, response.forwardContext.listenerNameRef)) match {
+    responseDurations.get((response.response.apiKey, response.request.context.listenerName, response.responseContext.listenerName)) match {
       case Some(timer) => timer.record(measureDuration(response.request).toJava)
       case None => logger.info(
         s"ApiKey ${response.response.apiKey.name} or " +
-          s"expose listener ${response.request.context.listenerNameRef.value} " +
-          s"or target listener ${response.forwardContext.listenerNameRef.value} is unknown.")
+          s"expose listener ${response.request.context.listenerName.value} " +
+          s"or target listener ${response.responseContext.listenerName.value} is unknown.")
     }
   }
 

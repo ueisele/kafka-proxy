@@ -29,7 +29,7 @@ class RequestForwarder(val config: KafkaProxyConfig,
   private var stoppedProcessingRequests = false
 
   override def handle(request: RequestChannel.Request): Unit =
-    routeTable.targetGroupByListener(request.context.listenerNameRef) match {
+    routeTable.targetGroupByListener(request.context.listenerName) match {
       case Some(target) => forwardChannel.sendRequest(request, target, request.context.connectionId)
       case None => forwardChannel.sendResponse(new CloseConnectionResponse(request))
     }

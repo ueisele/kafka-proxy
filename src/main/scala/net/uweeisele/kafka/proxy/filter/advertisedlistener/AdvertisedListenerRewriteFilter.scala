@@ -13,9 +13,9 @@ class AdvertisedListenerRewriteFilter(routeTable: RouteTable,
   override def handle(response: RequestChannel.SendResponse): Unit = {
     response.response match {
       case metadataResponse: MetadataResponse =>
-        handle(response.request.context.listenerNameRef, response.forwardContext.listenerNameRef, metadataResponse)
+        handle(response.request.context.listenerName, response.responseContext.listenerName, metadataResponse)
       case findCoordinatorResponse: FindCoordinatorResponse =>
-        handle(response.request.context.listenerNameRef, response.forwardContext.listenerNameRef, findCoordinatorResponse)
+        handle(response.request.context.listenerName, response.responseContext.listenerName, findCoordinatorResponse)
       case _ =>
     }
   }
