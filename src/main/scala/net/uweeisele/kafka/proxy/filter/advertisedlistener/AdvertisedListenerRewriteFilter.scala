@@ -1,14 +1,14 @@
 package net.uweeisele.kafka.proxy.filter.advertisedlistener
 
 import com.typesafe.scalalogging.LazyLogging
-import net.uweeisele.kafka.proxy.filter.ResponseFilter
 import net.uweeisele.kafka.proxy.forward.RouteTable
 import net.uweeisele.kafka.proxy.network.RequestChannel
+import net.uweeisele.kafka.proxy.response.ApiResponseHandler
 import org.apache.kafka.common.network.ListenerName
 import org.apache.kafka.common.requests.{FindCoordinatorResponse, MetadataResponse}
 
 class AdvertisedListenerRewriteFilter(routeTable: RouteTable,
-                                      advertisedListenerTable: AdvertisedListenerTable) extends ResponseFilter with LazyLogging {
+                                      advertisedListenerTable: AdvertisedListenerTable) extends ApiResponseHandler with LazyLogging {
 
   override def handle(response: RequestChannel.SendResponse): Unit = {
     response.response match {

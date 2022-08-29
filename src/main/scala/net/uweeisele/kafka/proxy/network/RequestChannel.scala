@@ -49,7 +49,7 @@ object RequestChannel extends LazyLogging {
       context.buildResponseSend(abstractResponse)
     }
 
-    def body[T <: AbstractRequest](implicit classTag: ClassTag[T], @nowarn("cat=unused") nn: NotNothing[T]): T = {
+    def body[T <: AbstractRequest](implicit classTag: ClassTag[T], nn: NotNothing[T]): T = {
       bodyAndSize.request match {
         case r: T => r
         case r =>

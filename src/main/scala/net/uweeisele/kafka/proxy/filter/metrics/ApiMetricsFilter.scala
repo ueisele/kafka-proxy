@@ -2,8 +2,9 @@ package net.uweeisele.kafka.proxy.filter.metrics
 
 import com.typesafe.scalalogging.LazyLogging
 import io.micrometer.core.instrument.{Counter, Meter, MeterRegistry, Timer}
-import net.uweeisele.kafka.proxy.filter.{RequestFilter, ResponseFilter}
 import net.uweeisele.kafka.proxy.network.RequestChannel
+import net.uweeisele.kafka.proxy.request.ApiRequestHandler
+import net.uweeisele.kafka.proxy.response.ApiResponseHandler
 import org.apache.kafka.common.network.ListenerName
 import org.apache.kafka.common.protocol.ApiKeys
 
@@ -12,10 +13,19 @@ import scala.concurrent.duration.{Duration, FiniteDuration, MILLISECONDS, SECOND
 import scala.jdk.DurationConverters.ScalaDurationOps
 import scala.language.postfixOps;
 
-class RequestMetricsFilter(exposeListeners: Seq[ListenerName],
-                           targetListeners: Seq[ListenerName],
-                           meterRegistry: MeterRegistry,
-                           prefix: String = "kafka") extends RequestFilter with ResponseFilter with Closeable with LazyLogging {
+object ApiMetricsFilter {
+  def apply(exposeListeners: Seq[ListenerName],
+            targetListeners: Seq[ListenerName],
+            prefix: String = "kafka")
+           (implicit meterRegistry: MeterRegistry): ApiMetricsFilter =
+    new ApiMetricsFilter(exposeListeners, targetListeners, meterRegistry, prefix)
+}
+
+class ApiMetricsFilter(exposeListeners: Seq[ListenerName],
+                       targetListeners: Seq[ListenerName],
+                       meterRegistry: MeterRegistry,
+                       prefix: String = "kafka")
+  extends ApiRequestHandler with ApiResponseHandler with Closeable with LazyLogging {
 
   private val requestCounters = ApiKeys.values().flatMap(apiKey => exposeListeners.map(listener => (apiKey, listener))).map {
     case (apiKey: ApiKeys, listener: ListenerName) =>
@@ -49,7 +59,7 @@ class RequestMetricsFilter(exposeListeners: Seq[ListenerName],
       } toMap
 
   override def handle(request: RequestChannel.Request): Unit = {
-    request.context.variables(s"${getClass.getName}:responses.duration") = System.currentTimeMillis
+    request.context.variables(s"${getClass.getName}:$prefix.responses.duration") = System.currentTimeMillis
     requestCounters.get((request.header.apiKey, request.context.listenerName)) match {
       case Some(counter) => counter.increment()
       case None => logger.info(s"ApiKey ${request.header.apiKey.name} or listener ${request.context.listenerName.value} is unknown.")
@@ -74,10 +84,10 @@ class RequestMetricsFilter(exposeListeners: Seq[ListenerName],
   }
 
   private def measureDuration(request: RequestChannel.Request): FiniteDuration = {
-    request.context.variables.get(s"${getClass.getName}:responses.duration") match {
+    request.context.variables.get(s"${getClass.getName}:$prefix.responses.duration") match {
       case Some(startMs: Long) => (System.currentTimeMillis - startMs, MILLISECONDS)
       case _ =>
-        logger.warn(s"Something went wrong! Request does not contain variable '${this.getClass.getName}:responses.duration'.")
+        logger.warn(s"Something went wrong! Request does not contain variable '${getClass.getName}:$prefix.responses.duration'.")
         Duration.Zero
     }
   }
