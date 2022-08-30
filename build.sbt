@@ -1,9 +1,11 @@
-name := "kafka-proxy"
+enablePlugins(PackPlugin)
 
+name := "kafka-proxy"
+organization := "uweeisele.net"
 version := "0.2"
 
-scalaVersion := "2.13.8"
-crossScalaVersions := Seq("2.13.8", "3.1.3")
+scalaVersion := "3.1.3"
+// crossScalaVersions := Seq("2.13.8", "3.1.3")
 
 scalacOptions ++= {
   Seq("-encoding", "UTF-8")
@@ -32,12 +34,6 @@ libraryDependencies ++= Seq(
 )
 
 val proxyMainClass = "net.uweeisele.kafka.proxy.KafkaProxyStartable"
-
 Compile / mainClass := Some(proxyMainClass)
 
-assembly / mainClass := Some(proxyMainClass)
-assembly / packageBin / packageOptions += Package.ManifestAttributes( "Multi-Release" -> "true" )
-assembly / assemblyMergeStrategy := {
-  case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
-  case _ => MergeStrategy.first
-}
+packCopyDependenciesTarget := crossTarget.value.toPath.resolve("libs").toFile

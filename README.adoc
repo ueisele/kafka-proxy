@@ -18,7 +18,7 @@ Find additional information at link:examples/proxyl7-kraft-plaintext/README.adoc
 .Build the Kafka Proxy
 [source,bash]
 ----
-sbt +assembly
+./sbtx clean package packCopyDependencies
 ----
 
 .Run
