@@ -1,6 +1,7 @@
 = PoC - L7 Kafka Proxy
 
-image:https://app.fossa.com/api/projects/custom%2B33213%2Fgit%40github.com%3Aueisele%2Fkafka-proxy.git.svg?type=shield[https://app.fossa.com/projects/custom%2B33213%2Fgit%40github.com%3Aueisele%2Fkafka-proxy.git?ref=badge_shield]
+https://app.fossa.com/projects/custom%2B33213%2Fgit%40github.com%3Aueisele%2Fkafka-proxy.git?ref=badge_shield[image:https://app.fossa.com/api/projects/custom%2B33213%2Fgit%40github.com%3Aueisele%2Fkafka-proxy.git.svg?type=shield[FOSSA
+Status]]
 
 == Quick Start
 
