@@ -26,7 +26,7 @@ Configuration:
       AppenderRef:
         ref: STDOUT
     logger:
-{{ range $logger, $level := $loggers -}}
+{{ range $logger, $level := $loggers }}
       - name: {{ $logger }}
         level: {{ $level }}
         additivity: false

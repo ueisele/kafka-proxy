@@ -16,7 +16,7 @@ Open another window and test connectivity.
 .Connect to Docker container with Kafka Cli
 [source,bash]
 ----
-docker-compose exec kafka-cli bash
+docker-compose exec cli-kafka bash
 ----
 
 .Play around with Kafka Cli
@@ -48,11 +48,11 @@ You can also use kafkacat cli tool to play around.
 .Connect to Docker container with Kafka Cli
 [source,bash]
 ----
-docker-compose exec kafkacat bash
+docker-compose exec cli-kcat bash
 ----
 
 .Request metadata with kafkacat tool
 [source,bash]
 ----
-kafkacat -b kafka-proxy-l7:9092 -L
+kcat -b kafka-proxy-l7:9092 -L
 ----

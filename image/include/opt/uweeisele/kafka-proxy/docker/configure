@@ -62,4 +62,4 @@ then
   fi
 fi
 
-godub template -i "/opt/uweeisele/kafka-proxy/docker/*.gotpl" -o "opt/uweeisele/kafka-proxy/config/"
+godub template -i "/opt/uweeisele/kafka-proxy/docker/*.gotpl" -o "/opt/uweeisele/kafka-proxy/config/"

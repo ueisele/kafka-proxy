@@ -22,7 +22,7 @@ services:
       - 19094:19094
     environment:
       KAFKA_PROXY_LISTENERS: INTERNAL://0.0.0.0:9092,0.0.0.0:9093,0.0.0.0:9094;EXTERNAL://0.0.0.0:19092,0.0.0.0:19093,0.0.0.0:19094
-      KAFKA_PROXY_ADVERTISED_LISTENERS: INTERNAL://kafka-proxy-l7.${DOMAIN_NAME}:9092,kafka-proxy-l7.${DOMAIN_NAME}:9093,kafka-proxy-l7.${DOMAIN_NAME}:9094;EXTERNAL://127.0.0.1:19092,127.0.0.1:19093,127.0.0.1:19094
+      KAFKA_PROXY_ADVERTISED_LISTENERS: INTERNAL://kafka-proxy-l7:9092,kafka-proxy-l7:9093,kafka-proxy-l7:9094;EXTERNAL://127.0.0.1:19092,127.0.0.1:19093,127.0.0.1:19094
       KAFKA_PROXY_TARGETS: PLAINTEXT://kafka-broker1:9092,kafka-broker2:9092,kafka-broker3:9092
       KAFKA_PROXY_ROUTES: INTERNAL->PLAINTEXT,EXTERNAL->PLAINTEXT
       KAFKA_PROXY_LISTENER_SECURITY_PROTOCOL_MAP: EXTERNAL:PLAINTEXT,INTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL
@@ -31,7 +31,7 @@ services:
   # Kafka Controller                                          #
   #############################################################
   kafka-controller1:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: docker.io/ueisele/apache-kafka-server:${KAFKA_VERSION}
     restart: always
     hostname: kafka-controller1
     volumes:
@@ -49,7 +49,7 @@ services:
       KAFKA_CONTROLLER_LISTENER_NAMES: PLAINTEXT # (required in KRaft mode) A comma-separated list of the names of the listeners used by the controller.
 
   kafka-controller2:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: docker.io/ueisele/apache-kafka-server:${KAFKA_VERSION}
     restart: always
     hostname: kafka-controller2
     volumes:
@@ -67,7 +67,7 @@ services:
       KAFKA_CONTROLLER_LISTENER_NAMES: PLAINTEXT # (required in KRaft mode) A comma-separated list of the names of the listeners used by the controller.
 
   kafka-controller3:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: docker.io/ueisele/apache-kafka-server:${KAFKA_VERSION}
     restart: always
     hostname: kafka-controller3
     volumes:
@@ -88,7 +88,7 @@ services:
   # Kafka Broker                                              #
   #############################################################
   kafka-broker1:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: docker.io/ueisele/apache-kafka-server:${KAFKA_VERSION}
     restart: always
     hostname: kafka-broker1
     networks:
@@ -113,7 +113,7 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CLIENT:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLPANE:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
 
   kafka-broker2:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: docker.io/ueisele/apache-kafka-server:${KAFKA_VERSION}
     restart: always
     hostname: kafka-broker2
     networks:
@@ -138,7 +138,7 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CLIENT:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLPANE:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
 
   kafka-broker3:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: docker.io/ueisele/apache-kafka-server:${KAFKA_VERSION}
     restart: always
     hostname: kafka-broker3
     networks:
@@ -165,15 +165,15 @@ services:
   #############################################################
   # Kafka CLI                                                 #
   #############################################################
-  kafka-cli:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
-    hostname: kafka-cli
+  cli-kafka:
+    image: docker.io/ueisele/apache-kafka-server:${KAFKA_VERSION}
+    hostname: cli-kafka
     entrypoint: /bin/bash
     tty: true
 
-  kafkacat:
-    image: confluentinc/cp-kafkacat:6.2.0
-    hostname: kafkacat
+  cli-kcat:
+    image: docker.io/confluentinc/cp-kcat:7.2.1
+    hostname: cli-kcat
     entrypoint: /bin/bash
     tty: true
 
@@ -184,7 +184,3 @@ volumes:
   kafka-broker1:
   kafka-broker2:
   kafka-broker3:
-
-networks:
-  default:
-    name: ${DOMAIN_NAME}
