@@ -1,11 +1,11 @@
 enablePlugins(PackPlugin)
+enablePlugins(GitVersioningPlugin)
 
 name := "kafka-proxy"
 organization := "uweeisele.net"
-version := "0.2"
+ThisBuild / gitVersioningSnapshotLowerBound := "0.1.0"
 
 scalaVersion := "3.1.3"
-// crossScalaVersions := Seq("2.13.8", "3.1.3")
 
 scalacOptions ++= {
   Seq("-encoding", "UTF-8")
@@ -36,4 +36,4 @@ libraryDependencies ++= Seq(
 val proxyMainClass = "net.uweeisele.kafka.proxy.KafkaProxyStartable"
 Compile / mainClass := Some(proxyMainClass)
 
-packCopyDependenciesTarget := crossTarget.value.toPath.resolve("libs").toFile
+packCopyDependenciesTarget := target.value.toPath.resolve("libs").toFile

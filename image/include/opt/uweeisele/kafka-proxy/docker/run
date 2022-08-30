@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-. /opt/kafka-proxy/docker/bash-config
+. /opt/uweeisele/kafka-proxy/docker/bash-config
 
 # Set environment values if they exist as arguments
 if [ $# -ne 0 ]; then
@@ -10,11 +10,17 @@ if [ $# -ne 0 ]; then
   done
 fi
 
+echo "===> OS"
+cat /etc/os-release
+
+echo "===> Java"
+java -version
+
 echo "===> User"
 id
 
 echo "===> Configuring ..."
-/opt/kafka-proxy/docker/configure
+/opt/uweeisele/kafka-proxy/docker/configure
 
 echo "===> Launching ... "
-exec /opt/kafka-proxy/docker/launch
+exec /opt/uweeisele/kafka-proxy/docker/launch

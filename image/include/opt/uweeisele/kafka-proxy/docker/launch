@@ -34,4 +34,4 @@ if [ "$KAFKA_PROXY_JMX_PORT" ]; then
 fi
 
 echo "===> Launching Kafka Proxy ... "
-exec kafka-proxy-start /opt/kafka-proxy/config/proxy.properties
+exec kafka-proxy-start /opt/uweeisele/kafka-proxy/config/proxy.properties

@@ -8,17 +8,11 @@ fi
 
 base_dir=$(dirname $0)/..
 
-if [ -z "$SCALA_VERSION" ]; then
-  SCALA_VERSION=3.1.3
-fi
-
 if [ -d "${base_dir}/libs" ]; then
   CLASSPATH="$CLASSPATH:${base_dir}/libs/*"
-elif [ -d "${base_dir}/target/scala-${SCALA_VERSION}" ]; then
-  CLASSPATH="$CLASSPATH:${base_dir}/target/scala-${SCALA_VERSION}/libs/*"
-fi
-
-if [ -z "$CLASSPATH" ] ; then
+elif [ -d "${base_dir}/target/libs" ]; then
+  CLASSPATH="$CLASSPATH:${base_dir}/target/libs/*"
+elif [ -z "$CLASSPATH" ] ; then
   echo "Classpath is empty."
   exit 1
 fi

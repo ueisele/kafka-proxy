@@ -1,0 +1,15 @@
+{{- $excluded_props := list
+    "KAFKA_PROXY_VERSION"
+    "KAFKA_PROXY_HEAP_OPTS"
+    "KAFKA_PROXY_LOG4J_OPTS"
+    "KAFKA_PROXY_OPTS"
+    "KAFKA_PROXY_JMX_OPTS"
+    "KAFKA_PROXY_JVM_PERFORMANCE_OPTS"
+    "KAFKA_PROXY_GC_LOG_OPTS"
+    "KAFKA_PROXY_LOG4J_ROOT_LOGLEVEL"
+    "KAFKA_PROXY_LOG4J_LOGGERS"
+-}}
+
+{{- range $key, $value := envToProp "KAFKA_PROXY_" "" $excluded_props -}}
+{{ $key }}={{ tpl $value $ }}
+{{ end }}

@@ -1,4 +1,6 @@
-= PoC: L7 Kafka Proxy
+= PoC - L7 Kafka Proxy
+
+image:https://app.fossa.com/api/projects/custom%2B33213%2Fgit%40github.com%3Aueisele%2Fkafka-proxy.git.svg?type=shield[https://app.fossa.com/projects/custom%2B33213%2Fgit%40github.com%3Aueisele%2Fkafka-proxy.git?ref=badge_shield]
 
 == Quick Start
 
@@ -8,7 +10,7 @@ In order to get started just navigate to link:examples/proxyl7-kraft-plaintext/[
 .Start Kafka Cluster and Kafka Proxy
 [source,bash]
 ----
-docker-compse up
+podman up
 ----
 
 Find additional information at link:examples/proxyl7-kraft-plaintext/README.adoc[].

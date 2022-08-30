@@ -1,74 +1,52 @@
-FROM registry.access.redhat.com/ubi8/ubi-minimal:8.4 as build
-
+FROM docker.io/ueisele/openjdk-jdk:zulu17.0.4 as build
 LABEL maintainer="code@uweeisele.eu"
 
-# This affects how strings in Java class files are interpreted. 
-# We want UTF-8 and this is the only locale in the base image that supports it
-ENV LANG="C.UTF-8"
+USER root
 
-# Zulu openJDK
-ENV ZULU_OPENJDK="zulu16-jdk-headless"
-ENV JAVA_HOME="/usr/lib/jvm/zulu16"
-
-RUN microdnf install -y dnf \
-    && dnf update -y \
-    # https://docs.azul.com/zulu/zuludocs/ZuluUserGuide/PrepareZuluPlatform/AttachYumRepositoryRHEL-SLES-OracleLinuxSys.htm
-    && rpm --import https://www.azul.com/files/0xB1998361219BD9C9.txt \
-    && dnf -y install https://cdn.azul.com/zulu/bin/zulu-repo-1.0.0-1.noarch.rpm \
-    && dnf -y install ${ZULU_OPENJDK} \
-    && dnf clean all \
+RUN microdnf install -y git \
+    && microdnf clean all \
     && rm -rf /tmp/*
 
-WORKDIR /work
+USER appuser
 
-COPY ./ ./
+COPY --chown=appuser:appuser ./ /home/appuser/kafka-proxy/
+WORKDIR /home/appuser/kafka-proxy/
 
-RUN ./sbtx +clean +assembly
-ARG SCALA_VERSION=3.0.0
-RUN cp target/scala-${SCALA_VERSION}/kafka-proxy-assembly-*.jar kafka-proxy.jar
+RUN ./sbtx clean package packCopyDependencies
+RUN mkdir -p dist/libs dist/dependant-libs \
+    && cp target/libs/* dist/dependant-libs/ \
+    && mv dist/dependant-libs/kafka-proxy* dist/libs
 
-FROM registry.access.redhat.com/ubi8/ubi-minimal:8.4
 
+FROM docker.io/ueisele/openjdk-jre:zulu17.0.4
 LABEL maintainer="code@uweeisele.eu"
 
-# This affects how strings in Java class files are interpreted.  We want UTF-8 and this is the only locale in the
-# base image that supports it
-ENV LANG="C.UTF-8"
+USER root
 
-# Zulu openJDK
-ENV ZULU_OPENJDK="zulu16-jre-headless"
-ENV JAVA_HOME="/usr/lib/jvm/zulu16"
+ARG GODUB_VERSION=0.1.0
+LABEL godub.version=${GODUB_VERSION}
+RUN curl -s -L https://github.com/ueisele/go-docker-utils/releases/download/${GODUB_VERSION}/godub-${GODUB_VERSION}-linux-amd64.tar.gz \
+    | tar xvz -C /usr/local/bin
 
-ENV PYTHON_VERSION="39-3.9.2"
+RUN mkdir -p /opt/uweeisele/kafka-proxy /opt/uweeisele/kafka-proxy/config /opt/uweeisele/kafka-proxy/secrets /opt/uweeisele/kafka-proxy/logs \
+    && chown appuser:appuser -R /opt/uweeisele/kafka-proxy
 
-RUN microdnf install -y dnf \
-    && dnf update -y \
-    && dnf install -y git python${PYTHON_VERSION} openssl wget tar procps krb5-workstation iputils hostname \
-    # https://docs.azul.com/zulu/zuludocs/ZuluUserGuide/PrepareZuluPlatform/AttachYumRepositoryRHEL-SLES-OracleLinuxSys.htm
-    && rpm --import https://www.azul.com/files/0xB1998361219BD9C9.txt \
-    && dnf -y install https://cdn.azul.com/zulu/bin/zulu-repo-1.0.0-1.noarch.rpm \
-    && dnf -y install ${ZULU_OPENJDK} \
-    && alternatives --set python /usr/bin/python3 \
-    && python3 -m pip install --upgrade pip setuptools \
-    && python3 -m pip install --prefer-binary --prefix=/usr/local --upgrade 'git+https://github.com/confluentinc/confluent-docker-utils@v0.0.45' \
-    && dnf remove -y git \
-    && dnf clean all \
-    && rm -rf /tmp/* \
-    && useradd --no-log-init --create-home --shell /bin/bash appuser \
-    && mkdir -p /opt/kafka-proxy /opt/kafka-proxy/bin /opt/kafka-proxy/config /opt/kafka-proxy/libs \
-    && chown appuser:appuser -R /opt/kafka-proxy
+VOLUME ["/opt/kafka-proxy/secrets"]
 
 USER appuser
 WORKDIR /home/appuser
 
-RUN mkdir -p /opt/kafka-proxy/secrets
-VOLUME ["/opt/kafka-proxy/secrets"]
+COPY --from=build --chown=appuser:appuser /home/appuser/kafka-proxy/dist/dependant-libs /opt/uweeisele/kafka-proxy/libs
+COPY --from=build --chown=appuser:appuser /home/appuser/kafka-proxy/dist/libs /opt/uweeisele/kafka-proxy/libs
 
-ENV PATH=/opt/kafka-proxy/bin:${PATH}
+COPY --from=build --chown=appuser:appuser /home/appuser/kafka-proxy/LICENSE /opt/uweeisele/kafka-proxy
+COPY --from=build --chown=appuser:appuser /home/appuser/kafka-proxy/NOTICE.md /opt/uweeisele/kafka-proxy
 
-COPY --chown=appuser:appuser bin /opt/kafka-proxy/bin
-COPY --chown=appuser:appuser image/include/opt/kafka-proxy/docker /opt/kafka-proxy/docker
+COPY --from=build --chown=appuser:appuser /home/appuser/kafka-proxy/bin /opt/uweeisele/kafka-proxy/bin
+ENV PATH=/opt/uweeisele/kafka-proxy/bin:${PATH}
 
-COPY --from=build --chown=appuser:appuser /work/kafka-proxy.jar /opt/kafka-proxy/libs
+COPY --chown=appuser:appuser image/include/opt/uweeisele/kafka-proxy/docker /opt/uweeisele/kafka-proxy/docker
 
-CMD ["/opt/kafka-proxy/docker/run"]
+EXPOSE 9092
+
+CMD ["/opt/uweeisele/kafka-proxy/docker/run"]

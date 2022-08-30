@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+. /opt/uweeisele/kafka-proxy/docker/bash-config
+
+godub ensure KAFKA_PROXY_LISTENERS
+godub ensure KAFKA_PROXY_TARGETS
+godub ensure KAFKA_PROXY_ROUTES
+
+godub path -r -w /opt/uweeisele/kafka-proxy/config
+godub path -r -w /opt/uweeisele/kafka-proxy/secrets
+
+# Set if LISTENERS has SSL:// or SASL_SSL:// endpoints.
+if [[ $KAFKA_PROXY_LISTENERS == *"SSL://"* ]]
+then
+  echo "SSL is enabled."
+
+  GODUB_PATH_TIMEOUT=${GODUB_PATH_TIMEOUT:-0s}
+
+  godub ensure KAFKA_PROXY_SSL_KEYSTORE_FILENAME
+  export KAFKA_PROXY_SSL_KEYSTORE_LOCATION="opt/uweeisele/kafka-proxy/secrets/$KAFKA_PROXY_SSL_KEYSTORE_FILENAME"
+  godub path --timeout ${GODUB_PATH_TIMEOUT} -r "$KAFKA_PROXY_SSL_KEYSTORE_LOCATION"
+
+  if [[ -n "${KAFKA_PROXY_SSL_KEY_CREDENTIALS-}" ]]
+  then
+    KAFKA_PROXY_SSL_KEY_CREDENTIALS_LOCATION="opt/uweeisele/kafka-proxy/secrets/$KAFKA_PROXY_SSL_KEY_CREDENTIALS"
+    godub path --timeout ${GODUB_PATH_TIMEOUT} -r "$KAFKA_PROXY_SSL_KEY_CREDENTIALS_LOCATION"
+    export KAFKA_PROXY_SSL_KEY_PASSWORD
+    KAFKA_PROXY_SSL_KEY_PASSWORD=$(cat "$KAFKA_PROXY_SSL_KEY_CREDENTIALS_LOCATION")
+  fi
+
+  if [[ $KAFKA_PROXY_SSL_KEYSTORE_TYPE != "PEM" ]]
+  then
+    godub ensure KAFKA_PROXY_SSL_KEYSTORE_CREDENTIALS
+    KAFKA_PROXY_SSL_KEYSTORE_CREDENTIALS_LOCATION="opt/uweeisele/kafka-proxy/secrets/$KAFKA_PROXY_SSL_KEYSTORE_CREDENTIALS"
+    godub path --timeout ${GODUB_PATH_TIMEOUT} -r "$KAFKA_PROXY_SSL_KEYSTORE_CREDENTIALS_LOCATION"
+    export KAFKA_PROXY_SSL_KEYSTORE_PASSWORD
+    KAFKA_PROXY_SSL_KEYSTORE_PASSWORD=$(cat "$KAFKA_PROXY_SSL_KEYSTORE_CREDENTIALS_LOCATION")
+  fi
+
+  if [[ -n "${KAFKA_PROXY_SSL_CLIENT_AUTH-}" ]] && ( [[ $KAFKA_PROXY_SSL_CLIENT_AUTH == *"required"* ]] || [[ $KAFKA_PROXY_SSL_CLIENT_AUTH == *"requested"* ]] )
+  then
+      godub ensure KAFKA_PROXY_SSL_TRUSTSTORE_FILENAME
+      export KAFKA_PROXY_SSL_TRUSTSTORE_LOCATION="opt/uweeisele/kafka-proxy/secrets/$KAFKA_PROXY_SSL_TRUSTSTORE_FILENAME"
+      godub path --timeout ${GODUB_PATH_TIMEOUT} -r "$KAFKA_PROXY_SSL_TRUSTSTORE_LOCATION"
+
+      if [[ $KAFKA_PROXY_SSL_TRUSTSTORE_TYPE != "PEM" ]]
+      then
+        godub ensure KAFKA_PROXY_SSL_TRUSTSTORE_CREDENTIALS
+        KAFKA_PROXY_SSL_TRUSTSTORE_CREDENTIALS_LOCATION="opt/uweeisele/kafka-proxy/secrets/$KAFKA_PROXY_SSL_TRUSTSTORE_CREDENTIALS"
+        godub path --timeout ${GODUB_PATH_TIMEOUT} -r "$KAFKA_PROXY_SSL_TRUSTSTORE_CREDENTIALS_LOCATION"
+        export KAFKA_PROXY_SSL_TRUSTSTORE_PASSWORD
+        KAFKA_PROXY_SSL_TRUSTSTORE_PASSWORD=$(cat "$KAFKA_PROXY_SSL_TRUSTSTORE_CREDENTIALS_LOCATION")
+      fi
+  fi
+  
+fi
+
+if [[ -n "${KAFKA_PROXY_JMX_OPTS-}" ]]
+then
+  if [[ ! $KAFKA_PROXY_JMX_OPTS == *"com.sun.management.jmxremote.rmi.port"*  ]]
+  then
+    echo "KAFKA_PROXY_OPTS should contain 'com.sun.management.jmxremote.rmi.port' property. It is required for accessing the JMX metrics externally."
+  fi
+fi
+
+godub template -i "/opt/uweeisele/kafka-proxy/docker/*.gotpl" -o "opt/uweeisele/kafka-proxy/config/"

@@ -1,0 +1,35 @@
+{{- $loggers := dict
+  "net.uweeisele.kafka.proxy" "info"
+  "java.nio" "info"
+-}}
+
+{{- if hasEnv "KAFKA_PROXY_LOG4J_LOGGERS" }}
+{{- $loggers = env "KAFKA_PROXY_LOG4J_LOGGERS" | kvCsvToMap | mergeOverwrite $loggers }}
+{{- end }}
+
+Configuration:
+  status: warn
+  name: YAMLConfig
+  shutdownHook: disable
+  thresholdFilter:
+    level: trace
+  appenders:
+    Console:
+      name: STDOUT
+      target: SYSTEM_OUT
+      PatternLayout:
+        Pattern: "%d [%p] %c{1} – %m%n"
+
+  Loggers:
+    Root:
+      level: {{ env "KAFKA_PROXY_LOG4J_ROOT_LOGLEVEL" | default "info" }}
+      AppenderRef:
+        ref: STDOUT
+    logger:
+{{ range $logger, $level := $loggers -}}
+      - name: {{ $logger }}
+        level: {{ $level }}
+        additivity: false
+        AppenderRef:
+          ref: STDOUT
+{{ end }}
