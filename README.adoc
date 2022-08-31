@@ -3,6 +3,15 @@
 https://app.fossa.com/projects/custom%2B33213%2Fgit%40github.com%3Aueisele%2Fkafka-proxy.git?ref=badge_shield[image:https://app.fossa.com/api/projects/custom%2B33213%2Fgit%40github.com%3Aueisele%2Fkafka-proxy.git.svg?type=shield[FOSSA
 Status]]
 
+Use Cases for a L7 Proxy:
+
+* Routing (e.g. based on user and tenant)
+* Encryption
+* Virtual Topics (e.g. with filters)
+* Namespaces
+* Authentication & Authorization
+* Policy Enforcement
+
 == Quick Start
 
 This repository contains example deployments for the Kafka Proxy combined with a Kafka Cluster.
