@@ -5,7 +5,8 @@ Status]]
 
 Use Cases for a L7 Proxy:
 
-* Routing (e.g. based on user and tenant)
+* Client Metrics
+* Routing (e.g. based on user and tenant, topic, ...)
 * Encryption
 * Virtual Topics (e.g. with filters)
 * Namespaces

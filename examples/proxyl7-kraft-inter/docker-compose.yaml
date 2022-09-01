@@ -24,7 +24,7 @@ services:
       - 19094:19094
     environment:
       KAFKA_PROXY_LISTENERS: INTERNAL://0.0.0.0:9092,0.0.0.0:9093,0.0.0.0:9094;EXTERNAL://0.0.0.0:19092,0.0.0.0:19093,0.0.0.0:19094
-      KAFKA_PROXY_ADVERTISED_LISTENERS: INTERNAL://kafka-proxy-client.${DOMAIN_NAME}:9092,kafka-proxy-client.${DOMAIN_NAME}:9093,kafka-proxy-client.${DOMAIN_NAME}:9094;EXTERNAL://127.0.0.1:19092,127.0.0.1:19093,127.0.0.1:19094
+      KAFKA_PROXY_ADVERTISED_LISTENERS: INTERNAL://kafka-proxy-client:9092,kafka-proxy-client:9093,kafka-proxy-client:9094;EXTERNAL://127.0.0.1:19092,127.0.0.1:19093,127.0.0.1:19094
       KAFKA_PROXY_TARGETS: PLAINTEXT://kafka-broker1:9092,kafka-broker2:9092,kafka-broker3:9092
       KAFKA_PROXY_ROUTES: INTERNAL->PLAINTEXT,EXTERNAL->PLAINTEXT
       KAFKA_PROXY_LISTENER_SECURITY_PROTOCOL_MAP: EXTERNAL:PLAINTEXT,INTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL
@@ -206,15 +206,15 @@ services:
   ###############################################################
   # Kafka CLI                                                   #
   ###############################################################
-  kafka-cli:
-    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
-    hostname: kafka-cli
+  cli-kafka:
+    image: docker.io/ueisele/apache-kafka-server:${KAFKA_VERSION}
+    hostname: cli-kafka
     entrypoint: /bin/bash
     tty: true
 
-  kafkacat:
-    image: confluentinc/cp-kafkacat:6.2.0
-    hostname: kafkacat
+  cli-kcat:
+    image: docker.io/confluentinc/cp-kcat:7.2.1
+    hostname: cli-kcat
     entrypoint: /bin/bash
     tty: true
 

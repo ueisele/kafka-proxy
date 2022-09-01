@@ -14,6 +14,12 @@ Client -- 909[1-3] --> Envoy Proxy -- 19092 --> Kafka Broker [1-3]
 | envoy-kafka-broker | 9093 | kafka-broker3 | 19092 | envoy-kafka-broker:9093
 |===
 
+.If you use podman, first ensure that the envoy-kafka-broker.yaml is readable by the envoy user
+[source,bash]
+----
+chmod +r envoy-kafka-broker.yaml
+----
+
 .Run Envoy, ZooKeeper and Kafka Brokers
 [source,bash]
 ----
@@ -23,7 +29,7 @@ docker-compose up -d
 .List advertised brokers
 [source,bash]
 ----
-docker-compose exec kafkacat kafkacat -b envoy-kafka-broker:9091 -L
+docker-compose exec cli-kcat kcat -b envoy-kafka-broker:9091 -L
 ----
 
 .Advertised brokers
