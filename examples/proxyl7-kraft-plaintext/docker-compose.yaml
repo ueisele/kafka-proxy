@@ -27,11 +27,12 @@ services:
       KAFKA_PROXY_ROUTES: INTERNAL->PLAINTEXT,EXTERNAL->PLAINTEXT
       KAFKA_PROXY_LISTENER_SECURITY_PROTOCOL_MAP: EXTERNAL:PLAINTEXT,INTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL
 
+
   #############################################################
   # Kafka Controller                                          #
   #############################################################
   kafka-controller1:
-    image: docker.io/ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     restart: always
     hostname: kafka-controller1
     volumes:
@@ -49,7 +50,7 @@ services:
       KAFKA_CONTROLLER_LISTENER_NAMES: PLAINTEXT # (required in KRaft mode) A comma-separated list of the names of the listeners used by the controller.
 
   kafka-controller2:
-    image: docker.io/ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     restart: always
     hostname: kafka-controller2
     volumes:
@@ -67,7 +68,7 @@ services:
       KAFKA_CONTROLLER_LISTENER_NAMES: PLAINTEXT # (required in KRaft mode) A comma-separated list of the names of the listeners used by the controller.
 
   kafka-controller3:
-    image: docker.io/ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     restart: always
     hostname: kafka-controller3
     volumes:
@@ -84,11 +85,12 @@ services:
       KAFKA_LISTENERS: PLAINTEXT://:9093 # (by default derived from advertised listeners) List of URIs we will listen on and the listener names. In this case, Kafka listens in both ports on all interfaces.
       KAFKA_CONTROLLER_LISTENER_NAMES: PLAINTEXT # (required in KRaft mode) A comma-separated list of the names of the listeners used by the controller.
 
+
   #############################################################
   # Kafka Broker                                              #
   #############################################################
   kafka-broker1:
-    image: docker.io/ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     restart: always
     hostname: kafka-broker1
     networks:
@@ -112,7 +114,7 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CLIENT:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
 
   kafka-broker2:
-    image: docker.io/ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     restart: always
     hostname: kafka-broker2
     networks:
@@ -136,7 +138,7 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CLIENT:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
 
   kafka-broker3:
-    image: docker.io/ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     restart: always
     hostname: kafka-broker3
     networks:
@@ -159,11 +161,12 @@ services:
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER # (required in KRaft mode) The listeners used by the controller to define the security protocol.
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CLIENT:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
 
+
   #############################################################
   # Kafka CLI                                                 #
   #############################################################
   cli-kafka:
-    image: docker.io/ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     hostname: cli-kafka
     entrypoint: /bin/bash
     tty: true

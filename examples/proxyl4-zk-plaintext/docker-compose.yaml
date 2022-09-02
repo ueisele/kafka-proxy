@@ -5,24 +5,6 @@
 ---
 version: '2.4'
 services:
-  #############################################################
-  # Kafka CLI                                                 #
-  #############################################################
-  cli-kafka:
-    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
-    hostname: cli-kafka
-    networks:
-      - public
-    entrypoint: /bin/bash
-    tty: true
-
-  cli-kcat:
-    image: docker.io/confluentinc/cp-kcat:7.2.1
-    hostname: cli-kcat
-    networks:
-      - public
-    entrypoint: /bin/bash
-    tty: true
 
   #############################################################
   # L4 Proxy (Envoy)                                          #
@@ -46,6 +28,7 @@ services:
           - kafka
           - envoy-kafka
       intern: {}
+
 
   #############################################################
   # ZooKeeper                                                 #
@@ -136,11 +119,11 @@ services:
       KAFKA_NODE_ID: 101 # (default: -1, required in KRaft mode) The node id for this server.
       KAFKA_ZOOKEEPER_CONNECT: zookeeper1:2181,zookeeper2:2181,zookeeper3:2181 # (required) Instructs Kafka how to get in touch with ZooKeeper.
       #### Socket Server Settings ###
-      KAFKA_LISTENERS: PUBLIC://0.0.0.0:19092,INTERN://0.0.0.0:9092,REPLICATION://0.0.0.0:9091,CONTROLPLANE://0.0.0.0:9094
-      KAFKA_ADVERTISED_LISTENERS: PUBLIC://envoy-kafka-broker:9091,INTERN://kafka-broker1:9092,REPLICATION://kafka-broker1:9091,CONTROLPLANE://kafka-broker1:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
+      KAFKA_LISTENERS: PUBLIC://0.0.0.0:19092,INTERN://0.0.0.0:9092,REPLICATION://0.0.0.0:9091,CONTROL_PLANE://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: PUBLIC://envoy-kafka-broker:9091,INTERN://kafka-broker1:9092,REPLICATION://kafka-broker1:9091,CONTROL_PLANE://kafka-broker1:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
       KAFKA_INTER_BROKER_LISTENER_NAME: REPLICATION
-      KAFKA_CONTROL_PLANE_LISTENER_NAME: CONTROLPLANE
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PUBLIC:PLAINTEXT,INTERN:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLPLANE:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
+      KAFKA_CONTROL_PLANE_LISTENER_NAME: CONTROL_PLANE
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PUBLIC:PLAINTEXT,INTERN:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROL_PLANE:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
 
   kafka-broker2:
     image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
@@ -157,11 +140,11 @@ services:
       KAFKA_NODE_ID: 102 # (default: -1, required in KRaft mode) The node id for this server.
       KAFKA_ZOOKEEPER_CONNECT: zookeeper2:2181,zookeeper1:2181,zookeeper3:2181 # (required) Instructs Kafka how to get in touch with ZooKeeper.
       #### Socket Server Settings ###
-      KAFKA_LISTENERS: PUBLIC://0.0.0.0:19092,INTERN://0.0.0.0:9092,REPLICATION://0.0.0.0:9091,CONTROLPLANE://0.0.0.0:9094
-      KAFKA_ADVERTISED_LISTENERS: PUBLIC://envoy-kafka-broker:9092,INTERN://kafka-broker2:9092,REPLICATION://kafka-broker2:9091,CONTROLPLANE://kafka-broker2:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
+      KAFKA_LISTENERS: PUBLIC://0.0.0.0:19092,INTERN://0.0.0.0:9092,REPLICATION://0.0.0.0:9091,CONTROL_PLANE://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: PUBLIC://envoy-kafka-broker:9092,INTERN://kafka-broker2:9092,REPLICATION://kafka-broker2:9091,CONTROL_PLANE://kafka-broker2:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
       KAFKA_INTER_BROKER_LISTENER_NAME: REPLICATION
-      KAFKA_CONTROL_PLANE_LISTENER_NAME: CONTROLPLANE
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PUBLIC:PLAINTEXT,INTERN:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLPLANE:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
+      KAFKA_CONTROL_PLANE_LISTENER_NAME: CONTROL_PLANE
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PUBLIC:PLAINTEXT,INTERN:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROL_PLANE:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
 
   kafka-broker3:
     image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
@@ -178,11 +161,31 @@ services:
       KAFKA_NODE_ID: 103 # (default: -1, required in KRaft mode) The node id for this server.
       KAFKA_ZOOKEEPER_CONNECT: zookeeper3:2181,zookeeper1:2181,zookeeper2:2181 # (required) Instructs Kafka how to get in touch with ZooKeeper.
       #### Socket Server Settings ###
-      KAFKA_LISTENERS: PUBLIC://0.0.0.0:19092,INTERN://0.0.0.0:9092,REPLICATION://0.0.0.0:9091,CONTROLPLANE://0.0.0.0:9094
-      KAFKA_ADVERTISED_LISTENERS: PUBLIC://envoy-kafka-broker:9093,INTERN://kafka-broker3:9092,REPLICATION://kafka-broker3:9091,CONTROLPLANE://kafka-broker3:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
+      KAFKA_LISTENERS: PUBLIC://0.0.0.0:19092,INTERN://0.0.0.0:9092,REPLICATION://0.0.0.0:9091,CONTROL_PLANE://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: PUBLIC://envoy-kafka-broker:9093,INTERN://kafka-broker3:9092,REPLICATION://kafka-broker3:9091,CONTROL_PLANE://kafka-broker3:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
       KAFKA_INTER_BROKER_LISTENER_NAME: REPLICATION
-      KAFKA_CONTROL_PLANE_LISTENER_NAME: CONTROLPLANE
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PUBLIC:PLAINTEXT,INTERN:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLPLANE:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
+      KAFKA_CONTROL_PLANE_LISTENER_NAME: CONTROL_PLANE
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PUBLIC:PLAINTEXT,INTERN:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROL_PLANE:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
+
+
+  #############################################################
+  # Kafka CLI                                                 #
+  #############################################################
+  cli-kafka:
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
+    hostname: cli-kafka
+    networks:
+      - public
+    entrypoint: /bin/bash
+    tty: true
+
+  cli-kcat:
+    image: docker.io/confluentinc/cp-kcat:7.2.1
+    hostname: cli-kcat
+    networks:
+      - public
+    entrypoint: /bin/bash
+    tty: true
 
 volumes:
   zookeeper1_data:

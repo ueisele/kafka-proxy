@@ -21,10 +21,10 @@ services:
       - 19093:19093
       - 19094:19094
     volumes:
-      - ./target/certs:/opt/kafka-proxy/secrets/
+      - ./target:/opt/uweeisele/kafka-proxy/secrets/:ro,z
     environment:
       KAFKA_PROXY_LISTENERS: INTERNAL_SSL://0.0.0.0:9092,0.0.0.0:9093,0.0.0.0:9094;EXTERNAL_SSL://0.0.0.0:19092,0.0.0.0:19093,0.0.0.0:19094
-      KAFKA_PROXY_ADVERTISED_LISTENERS: INTERNAL_SSL://kafka-proxy-l7.${DOMAIN_NAME}:9092,kafka-proxy-l7.${DOMAIN_NAME}:9093,kafka-proxy-l7.${DOMAIN_NAME}:9094;EXTERNAL_SSL://127.0.0.1:19092,127.0.0.1:19093,127.0.0.1:19094
+      KAFKA_PROXY_ADVERTISED_LISTENERS: INTERNAL_SSL://kafka-proxy-l7:9092,kafka-proxy-l7:9093,kafka-proxy-l7:9094;EXTERNAL_SSL://127.0.0.1:19092,127.0.0.1:19093,127.0.0.1:19094
       KAFKA_PROXY_SSL_KEYSTORE_TYPE: PEM
       KAFKA_PROXY_SSL_KEYSTORE_FILENAME: kafka-proxy.proxy.keystore.pem
       KAFKA_PROXY_SSL_KEY_CREDENTIALS: kafka-proxy.proxy.key.credentials
@@ -36,7 +36,7 @@ services:
   # Kafka Controller                                          #
   #############################################################
   kafka-controller1:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     restart: always
     hostname: kafka-controller1
     volumes:
@@ -54,7 +54,7 @@ services:
       KAFKA_CONTROLLER_LISTENER_NAMES: PLAINTEXT # (required in KRaft mode) A comma-separated list of the names of the listeners used by the controller.
 
   kafka-controller2:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     restart: always
     hostname: kafka-controller2
     volumes:
@@ -72,7 +72,7 @@ services:
       KAFKA_CONTROLLER_LISTENER_NAMES: PLAINTEXT # (required in KRaft mode) A comma-separated list of the names of the listeners used by the controller.
 
   kafka-controller3:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     restart: always
     hostname: kafka-controller3
     volumes:
@@ -93,7 +93,7 @@ services:
   # Kafka Broker                                              #
   #############################################################
   kafka-broker1:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     restart: always
     hostname: kafka-broker1
     networks:
@@ -111,14 +111,13 @@ services:
       KAFKA_NODE_ID: 101 # (default: -1, required in KRaft mode) The node id for this server.
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-controller1:9093,2@kafka-controller2:9093,3@kafka-controller3:9093 # (required in KRaft mode) The connect string for the controller quorum
       #### Socket Server Settings ###
-      KAFKA_ADVERTISED_LISTENERS: CLIENT://kafka-broker1:9092,REPLICATION://kafka-broker1:9091,CONTROLPANE://kafka-broker1:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
+      KAFKA_ADVERTISED_LISTENERS: CLIENT://kafka-broker1:9092,REPLICATION://kafka-broker1:9091 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
       KAFKA_INTER_BROKER_LISTENER_NAME: REPLICATION
-      KAFKA_CONTROL_PLANE_LISTENER_NAME: CONTROLPANE
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER # (required in KRaft mode) The listeners used by the controller to define the security protocol.
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CLIENT:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLPANE:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CLIENT:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
 
   kafka-broker2:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     restart: always
     hostname: kafka-broker2
     networks:
@@ -136,14 +135,13 @@ services:
       KAFKA_NODE_ID: 102 # (default: -1, required in KRaft mode) The node id for this server.
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-controller1:9093,2@kafka-controller2:9093,3@kafka-controller3:9093 # (required in KRaft mode) The connect string for the controller quorum
       #### Socket Server Settings ###
-      KAFKA_ADVERTISED_LISTENERS: CLIENT://kafka-broker2:9092,REPLICATION://kafka-broker2:9091,CONTROLPANE://kafka-broker2:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
+      KAFKA_ADVERTISED_LISTENERS: CLIENT://kafka-broker2:9092,REPLICATION://kafka-broker2:9091 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
       KAFKA_INTER_BROKER_LISTENER_NAME: REPLICATION
-      KAFKA_CONTROL_PLANE_LISTENER_NAME: CONTROLPANE
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER # (required in KRaft mode) The listeners used by the controller to define the security protocol.
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CLIENT:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLPANE:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CLIENT:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
 
   kafka-broker3:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
     restart: always
     hostname: kafka-broker3
     networks:
@@ -161,27 +159,26 @@ services:
       KAFKA_NODE_ID: 103 # (default: -1, required in KRaft mode) The node id for this server.
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-controller1:9093,2@kafka-controller2:9093,3@kafka-controller3:9093 # (required in KRaft mode) The connect string for the controller quorum
       #### Socket Server Settings ###
-      KAFKA_ADVERTISED_LISTENERS: CLIENT://kafka-broker3:9092,REPLICATION://kafka-broker3:9091,CONTROLPANE://kafka-broker3:9094 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
+      KAFKA_ADVERTISED_LISTENERS: CLIENT://kafka-broker3:9092,REPLICATION://kafka-broker3:9091 # (required) Describes how the host name that is advertised and can be reached by clients. HOST://localhost:19092 enables access from Docker host.
       KAFKA_INTER_BROKER_LISTENER_NAME: REPLICATION
-      KAFKA_CONTROL_PLANE_LISTENER_NAME: CONTROLPANE
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER # (required in KRaft mode) The listeners used by the controller to define the security protocol.
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CLIENT:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLPANE:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CLIENT:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
 
   #############################################################
   # Kafka CLI                                                 #
   #############################################################
-  kafka-cli:
-    image: ueisele/apache-kafka-server:${KAFKA_VERSION}
-    hostname: kafka-cli
+  cli-kafka:
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
+    hostname: cli-kafka
     working_dir: /work
     volumes:
       - ./target:/work/config
     entrypoint: /bin/bash
     tty: true
 
-  kafkacat:
-    image: confluentinc/cp-kafkacat:6.2.0
-    hostname: kafkacat
+  cli-kcat:
+    image: docker.io/confluentinc/cp-kcat:7.2.1
+    hostname: cli-kcat
     entrypoint: /bin/bash
     working_dir: /work
     volumes:
@@ -195,7 +192,3 @@ volumes:
   kafka-broker1:
   kafka-broker2:
   kafka-broker3:
-
-networks:
-  default:
-    name: ${DOMAIN_NAME}

@@ -5,24 +5,6 @@
 ---
 version: '2.4'
 services:
-  #############################################################
-  # Kafka CLI                                                 #
-  #############################################################
-  cli-kafka:
-    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
-    hostname: cli-kafka
-    networks:
-      - public
-    entrypoint: /bin/bash
-    tty: true
-
-  cli-kcat:
-    image: docker.io/confluentinc/cp-kcat:7.2.1
-    hostname: cli-kcat
-    networks:
-      - public
-    entrypoint: /bin/bash
-    tty: true
 
   #############################################################
   # L4 Proxy (Envoy)                                          #
@@ -46,6 +28,7 @@ services:
           - kafka
           - envoy-kafka
       intern: {}
+
 
   #############################################################
   # Kafka Controller                                          #
@@ -109,6 +92,7 @@ services:
       #### Socket Server Settings ###
       KAFKA_LISTENERS: PLAINTEXT://:9093 # (by default derived from advertised listeners) List of URIs we will listen on and the listener names. In this case, Kafka listens in both ports on all interfaces.
       KAFKA_CONTROLLER_LISTENER_NAMES: PLAINTEXT # (required in KRaft mode) A comma-separated list of the names of the listeners used by the controller.
+
 
   #############################################################
   # Kafka Broker                                              #
@@ -187,6 +171,26 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: REPLICATION
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER # (required in KRaft mode) The listeners used by the controller to define the security protocol.
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PUBLIC:PLAINTEXT,INTERN:PLAINTEXT,REPLICATION:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL # (default: PLAINTEXT:PLAINTEXT,...) Map between listener names and security protocols. In this scenario this setting is used to define listeners with names.
+
+
+  #############################################################
+  # Kafka CLI                                                 #
+  #############################################################
+  cli-kafka:
+    image: ${KAFKA_IMAGE}:${KAFKA_VERSION}
+    hostname: cli-kafka
+    networks:
+      - public
+    entrypoint: /bin/bash
+    tty: true
+
+  cli-kcat:
+    image: docker.io/confluentinc/cp-kcat:7.2.1
+    hostname: cli-kcat
+    networks:
+      - public
+    entrypoint: /bin/bash
+    tty: true
 
 volumes:
   kafka-controller1:
