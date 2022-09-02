@@ -7,7 +7,8 @@ import io.micrometer.core.instrument.{MeterRegistry, Metrics}
 import io.micrometer.prometheus.{PrometheusConfig, PrometheusMeterRegistry}
 import net.uweeisele.kafka.proxy.config.KafkaProxyConfig
 import net.uweeisele.kafka.proxy.filter.advertisedlistener.{AdvertisedListenerRewriteFilter, AdvertisedListenerTable}
-import net.uweeisele.kafka.proxy.filter.metrics._
+import net.uweeisele.kafka.proxy.filter.apiversion.ApiVersionFilter
+import net.uweeisele.kafka.proxy.filter.metrics.{ClientApiMetricsFilter, Evictable, MeasurableApiRequestHandlerChain, MeasurableApiResponseHandlerChain, ProduceClientApiMetricsFilter}
 import net.uweeisele.kafka.proxy.forward.{RequestForwarder, RouteTable}
 import net.uweeisele.kafka.proxy.network.SocketServer
 import net.uweeisele.kafka.proxy.request.{ApiRequestHandler, ApiRequestHandlerChain, RequestHandlerPool}
@@ -103,6 +104,7 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
 
         val advertisedListenerTable = new AdvertisedListenerTable(proxyConfig.listeners, proxyConfig.advertisedListeners)
         val apiResponseHandlerChain = ApiResponseHandlerChain(Seq[ApiResponseHandler](
+          new ApiVersionFilter,
           new AdvertisedListenerRewriteFilter(routeTable, advertisedListenerTable),
           response => { response.request.header.apiKey match {
             case ApiKeys.FETCH => None

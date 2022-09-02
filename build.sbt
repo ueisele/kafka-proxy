@@ -5,11 +5,12 @@ name := "kafka-proxy"
 organization := "uweeisele.net"
 ThisBuild / gitVersioningSnapshotLowerBound := "0.1.0"
 
-scalaVersion := "3.1.3"
+scalaVersion := "2.13.8"
+//scalaVersion := "3.1.3"
 
 scalacOptions ++= {
   Seq("-encoding", "UTF-8")
-  if (scalaVersion.value.startsWith("3"))
+  if (scalaVersion.value.startsWith("4"))
     Seq("-source:3.0-migration", "-rewrite")
   else Nil
 }

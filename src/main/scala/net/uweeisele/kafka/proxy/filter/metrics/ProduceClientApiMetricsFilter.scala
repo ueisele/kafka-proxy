@@ -174,7 +174,7 @@ class ProduceClientApiMetricsFilter(meterRegistry: MeterRegistry,
 
   private def measureDuration(request: RequestChannel.Request): FiniteDuration = {
     request.context.variables.get(s"${getClass.getName}:$prefix.requests.produce.duration") match {
-      case Some(startMs: Long) => (System.currentTimeMillis - startMs, MILLISECONDS)
+      case Some(startMs: Long) => Duration(System.currentTimeMillis - startMs, MILLISECONDS)
       case _ =>
         logger.warn(s"Something went wrong! Request does not contain variable '${getClass.getName}:$prefix.requests.produce.duration'.")
         Duration.Zero

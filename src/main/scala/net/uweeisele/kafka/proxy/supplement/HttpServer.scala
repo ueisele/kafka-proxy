@@ -6,7 +6,7 @@ import io.micrometer.core.instrument.util.NamedThreadFactory
 
 import java.net.InetSocketAddress
 import java.util.concurrent.Executors
-import scala.concurrent.duration.{FiniteDuration, NANOSECONDS}
+import scala.concurrent.duration.{Duration, FiniteDuration, NANOSECONDS}
 
 class HttpServer(bindAddress: InetSocketAddress,
                  backlog: Int = 0,
@@ -25,7 +25,7 @@ class HttpServer(bindAddress: InetSocketAddress,
   }
 
   def shutdown(): Unit = {
-    shutdown((Long.MaxValue, NANOSECONDS))
+    shutdown(Duration(Long.MaxValue, NANOSECONDS))
   }
 
   def shutdown(waitTime: FiniteDuration): Unit = {

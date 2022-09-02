@@ -9,6 +9,7 @@ import org.apache.kafka.common.network.ListenerName
 import org.apache.kafka.common.protocol.ApiKeys
 
 import java.io.Closeable
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{Duration, FiniteDuration, MILLISECONDS, SECONDS}
 import scala.jdk.DurationConverters.ScalaDurationOps
 import scala.language.postfixOps;
@@ -85,7 +86,7 @@ class ApiMetricsFilter(exposeListeners: Seq[ListenerName],
 
   private def measureDuration(request: RequestChannel.Request): FiniteDuration = {
     request.context.variables.get(s"${getClass.getName}:$prefix.responses.duration") match {
-      case Some(startMs: Long) => (System.currentTimeMillis - startMs, MILLISECONDS)
+      case Some(startMs: Long) => Duration(System.currentTimeMillis - startMs, MILLISECONDS)
       case _ =>
         logger.warn(s"Something went wrong! Request does not contain variable '${getClass.getName}:$prefix.responses.duration'.")
         Duration.Zero
