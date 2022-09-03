@@ -46,7 +46,6 @@ class ProduceClientApiMetricsFilter(meterRegistry: MeterRegistry,
       case ApiKeys.PRODUCE =>
         val produceRequest: ProduceRequest = request.body[ProduceRequest]
         request.context.variables(s"${getClass.getName}:$prefix.requests.produce.duration") = System.currentTimeMillis
-        request.context.variables(s"${getClass.getName}:$prefix.requests.produce.acks") = produceRequest.acks
 
         val (countersMap, countersMapLastUpdated) = produceRequestCounters.getOrElseUpdate(
           (request.context.clientSocketAddress, request.context.clientId, request.context.principal, request.context.listenerName, produceRequest.acks),
@@ -112,7 +111,7 @@ class ProduceClientApiMetricsFilter(meterRegistry: MeterRegistry,
             .tag("exposeListenerName", response.request.context.listenerName.value)
             .tag("targetListenerName", response.responseContext.listenerName.value)
             .tag("apiVersion", response.request.context.apiVersion.toString)
-            .tag("acks", acks(response.request).toString)
+            .tag("acks", response.request.body[ProduceRequest].acks().toString)
             .register(meterRegistry), new AtomicReference(Instant.now)))
         countersMapLastUpdated.set(Instant.now)
         countersMap.increment()
@@ -128,7 +127,7 @@ class ProduceClientApiMetricsFilter(meterRegistry: MeterRegistry,
             .tag("exposeListenerName", response.request.context.listenerName.value)
             .tag("targetListenerName", response.responseContext.listenerName.value)
             .tag("apiVersion", response.request.context.apiVersion.toString)
-            .tag("acks", acks(response.request).toString)
+            .tag("acks", response.request.body[ProduceRequest].acks().toString)
             .distributionStatisticExpiry(ttl.toJava)
             .publishPercentiles(0.25, 0.5, 0.6, 0.75, 0.8, 0.9, 0.95, 0.97, 0.99)
             .register(meterRegistry), new AtomicReference(Instant.now)))
@@ -151,7 +150,7 @@ class ProduceClientApiMetricsFilter(meterRegistry: MeterRegistry,
                   .tag("exposeListenerName", response.request.context.listenerName.value)
                   .tag("targetListenerName", response.responseContext.listenerName.value)
                   .tag("apiVersion", response.request.context.apiVersion.toString)
-                  .tag("acks", acks(response.request).toString)
+                  .tag("acks", response.request.body[ProduceRequest].acks().toString)
                   .tag("topic", topicData.name)
                   .tag("error", error.name)
                   .register(meterRegistry), new AtomicReference(Instant.now)))
@@ -160,15 +159,6 @@ class ProduceClientApiMetricsFilter(meterRegistry: MeterRegistry,
           }
         }
       case _ =>
-    }
-  }
-
-  private def acks(request: RequestChannel.Request): Short = {
-    request.context.variables.get(s"${getClass.getName}:$prefix.requests.produce.acks") match {
-      case Some(acks: Short) =>acks
-      case _ =>
-        logger.warn(s"Something went wrong! Request does not contain variable '${getClass.getName}:$prefix.requests.produce.acks'.")
-        -2
     }
   }
 
@@ -185,6 +175,10 @@ class ProduceClientApiMetricsFilter(meterRegistry: MeterRegistry,
     val evictBefore = Instant.now.minusMillis(ttl.toMillis)
     evict(produceRequestCounters, evictBefore)
     evict(produceRequestTopicCounters, evictBefore)
+    evict(produceRequestTopicBytesCounters, evictBefore)
+    evict(produceResponseCounters, evictBefore)
+    evict(produceResponseDurations, evictBefore)
+    evict(produceResponseTopicErrorsCounters, evictBefore)
   }
 
   private def evict[K,M<:Meter](evictableMap: mutable.Map[K, (M, AtomicReference[Instant])], evictBefore: Instant): Unit = {
@@ -201,6 +195,10 @@ class ProduceClientApiMetricsFilter(meterRegistry: MeterRegistry,
   override def close(): Unit = {
     close(produceRequestCounters)
     close(produceRequestTopicCounters)
+    close(produceRequestTopicBytesCounters)
+    close(produceResponseCounters)
+    close(produceResponseDurations)
+    close(produceResponseTopicErrorsCounters)
   }
 
   private def close[K,M<:Meter,T](meterMap: mutable.Map[K, (M, T)]): Unit = {

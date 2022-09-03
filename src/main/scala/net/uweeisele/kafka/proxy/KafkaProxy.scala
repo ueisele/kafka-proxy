@@ -84,7 +84,7 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
         //metricsFilters += RequestMetricsFilter(proxyConfig.routes.keySet.toSeq, proxyConfig.routes.values.toSet.toSeq)
         metricsFilters += ClientApiMetricsFilter("kafka", Duration(5, MINUTES))
         metricsFilters += ProduceClientApiMetricsFilter("kafka", Duration(5, MINUTES))
-        evictionScheduler.scheduleAtFixedRate(() => metricsFilters.foreach(_.evict()), 5, 1, MINUTES)
+        evictionScheduler.scheduleAtFixedRate(() => metricsFilters.foreach(_.evict()), 1, 1, MINUTES)
 
         // Create and start the socket server acceptor threads so that the bound port is known.
         // Delay starting processors until the end of the initialization sequence to ensure
