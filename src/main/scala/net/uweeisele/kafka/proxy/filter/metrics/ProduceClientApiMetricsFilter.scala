@@ -100,9 +100,11 @@ class ProduceClientApiMetricsFilter(meterRegistry: MeterRegistry,
   override def handle(response: RequestChannel.SendResponse): Unit = {
     response.response.apiKey match {
       case ApiKeys.PRODUCE =>
+        val acks = response.request.body[ProduceRequest].acks()
+
         val (countersMap, countersMapLastUpdated) = produceResponseCounters.getOrElseUpdate(
           (response.request.context.clientSocketAddress, response.request.context.clientId, response.request.context.principal,
-            response.request.context.listenerName, response.responseContext.listenerName, acks(response.request)),
+            response.request.context.listenerName, response.responseContext.listenerName, acks),
           (Counter.builder(s"$prefix.responses.produce")
             .tag("clientAddress", response.request.context.clientSocketAddress.getAddress.getHostAddress)
             .tag("clientPort", response.request.context.clientSocketAddress.getPort.toString)
@@ -111,14 +113,14 @@ class ProduceClientApiMetricsFilter(meterRegistry: MeterRegistry,
             .tag("exposeListenerName", response.request.context.listenerName.value)
             .tag("targetListenerName", response.responseContext.listenerName.value)
             .tag("apiVersion", response.request.context.apiVersion.toString)
-            .tag("acks", response.request.body[ProduceRequest].acks().toString)
+            .tag("acks", acks.toString)
             .register(meterRegistry), new AtomicReference(Instant.now)))
         countersMapLastUpdated.set(Instant.now)
         countersMap.increment()
 
         val (durationsMap, durationsMapLastUpdated) = produceResponseDurations.getOrElseUpdate(
           (response.request.context.clientSocketAddress, response.request.context.clientId, response.request.context.principal,
-            response.request.context.listenerName, response.responseContext.listenerName, acks(response.request)),
+            response.request.context.listenerName, response.responseContext.listenerName, acks),
           (Timer.builder(s"$prefix.responses.produce.duration")
             .tag("clientAddress", response.request.context.clientSocketAddress.getAddress.getHostAddress)
             .tag("clientPort", response.request.context.clientSocketAddress.getPort.toString)
@@ -127,7 +129,7 @@ class ProduceClientApiMetricsFilter(meterRegistry: MeterRegistry,
             .tag("exposeListenerName", response.request.context.listenerName.value)
             .tag("targetListenerName", response.responseContext.listenerName.value)
             .tag("apiVersion", response.request.context.apiVersion.toString)
-            .tag("acks", response.request.body[ProduceRequest].acks().toString)
+            .tag("acks", acks.toString)
             .distributionStatisticExpiry(ttl.toJava)
             .publishPercentiles(0.25, 0.5, 0.6, 0.75, 0.8, 0.9, 0.95, 0.97, 0.99)
             .register(meterRegistry), new AtomicReference(Instant.now)))
@@ -141,7 +143,7 @@ class ProduceClientApiMetricsFilter(meterRegistry: MeterRegistry,
             case (error, count) =>
               val (topicErrorCountersMap, topicErrorCountersMapLastUpdated) = produceResponseTopicErrorsCounters.getOrElseUpdate(
                 (response.request.context.clientSocketAddress, response.request.context.clientId, response.request.context.principal,
-                  response.request.context.listenerName, response.responseContext.listenerName, acks(response.request), topicData.name, error),
+                  response.request.context.listenerName, response.responseContext.listenerName, acks, topicData.name, error),
                 (Counter.builder(s"$prefix.responses.produce.topic.error")
                   .tag("clientAddress", response.request.context.clientSocketAddress.getAddress.getHostAddress)
                   .tag("clientPort", response.request.context.clientSocketAddress.getPort.toString)
@@ -150,7 +152,7 @@ class ProduceClientApiMetricsFilter(meterRegistry: MeterRegistry,
                   .tag("exposeListenerName", response.request.context.listenerName.value)
                   .tag("targetListenerName", response.responseContext.listenerName.value)
                   .tag("apiVersion", response.request.context.apiVersion.toString)
-                  .tag("acks", response.request.body[ProduceRequest].acks().toString)
+                  .tag("acks", acks.toString)
                   .tag("topic", topicData.name)
                   .tag("error", error.name)
                   .register(meterRegistry), new AtomicReference(Instant.now)))
