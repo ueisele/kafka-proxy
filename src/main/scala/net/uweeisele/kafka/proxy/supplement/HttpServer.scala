@@ -31,7 +31,7 @@ class HttpServer(bindAddress: InetSocketAddress,
   def shutdown(waitTime: FiniteDuration): Unit = {
     ensureNotStopped()
     val startNs = System.nanoTime()
-    httpServer.stop(waitTime.toSeconds.toInt)
+    httpServer.stop(0)
     executor.shutdown()
     executor.awaitTermination(waitTime.toNanos - (System.nanoTime() - startNs), NANOSECONDS)
     logger.info(s"Stopped HttpServer $threadNamePrefix on bind address $bindAddress.")

@@ -5,6 +5,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.micrometer.core.instrument.util.NamedThreadFactory
 import io.micrometer.core.instrument.{MeterRegistry, Metrics}
 import io.micrometer.prometheus.{PrometheusConfig, PrometheusMeterRegistry}
+import io.prometheus.client.exporter.HTTPServer
 import net.uweeisele.kafka.proxy.config.KafkaProxyConfig
 import net.uweeisele.kafka.proxy.filter.advertisedlistener.{AdvertisedListenerRewriteFilter, AdvertisedListenerTable}
 import net.uweeisele.kafka.proxy.filter.apiversion.ApiVersionFilter
@@ -24,7 +25,7 @@ import java.util.concurrent.TimeUnit.MINUTES
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.{CountDownLatch, Executors, ScheduledExecutorService}
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.{Duration, NANOSECONDS}
 
 object KafkaProxy {
   def fromProps(serverProps: Properties): KafkaProxy = {
@@ -42,7 +43,7 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
 
   private var evictionScheduler: ScheduledExecutorService = null
 
-  private var metricsHttpServer: HttpServer = null
+  private var metricsHttpServer: HTTPServer = null
   private val metricsFilters: ListBuffer[ApiRequestHandler with ApiResponseHandler with Closeable with Evictable] = ListBuffer()
 
   private var socketServer: SocketServer = null
@@ -72,9 +73,13 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
 
         //val jmxCollector = Using(getClass.getClassLoader.getResourceAsStream("prometheus-jmx.yaml"))(new JmxCollector(_)).get
         //jmxCollector.register(CollectorRegistry.defaultRegistry)
-        metricsHttpServer = new HttpServer(new InetSocketAddress(8080), 10, 2, "metrics-http-server")
-          .addHandler("/metrics", new PrometheusMetricsHttpHandler(prometheusMeterRegistry.getPrometheusRegistry))
-          .start()
+        //metricsHttpServer = new HttpServer(new InetSocketAddress(8080), 10, 2, "metrics-http-server")
+        //  .addHandler("/metrics", new PrometheusMetricsHttpHandler(prometheusMeterRegistry.getPrometheusRegistry))
+        //  .start()
+        metricsHttpServer = new HTTPServer.Builder()
+          .withPort(8080)
+          .withRegistry(prometheusMeterRegistry.getPrometheusRegistry)
+          .build()
 
         //metricsFilters += RequestMetricsFilter(proxyConfig.routes.keySet.toSeq, proxyConfig.routes.values.toSet.toSeq)
         metricsFilters += ClientApiMetricsFilter("kafka", Duration(5, MINUTES))
@@ -164,7 +169,7 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
         }
 
         if (metricsHttpServer != null) {
-          try {metricsHttpServer.shutdown()} catch { case e: Throwable => logger.error(e.getMessage, e) }
+          try {metricsHttpServer.close()} catch { case e: Throwable => logger.error(e.getMessage, e) }
         }
 
         if (metricsFilters != null) {
@@ -175,6 +180,7 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
 
         if (evictionScheduler != null) {
           evictionScheduler.shutdownNow()
+          evictionScheduler.awaitTermination(Long.MaxValue, NANOSECONDS)
         }
 
         startupComplete.set(false)
