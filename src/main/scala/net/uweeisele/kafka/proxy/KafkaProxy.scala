@@ -9,7 +9,7 @@ import io.prometheus.client.exporter.HTTPServer
 import net.uweeisele.kafka.proxy.config.KafkaProxyConfig
 import net.uweeisele.kafka.proxy.filter.advertisedlistener.{AdvertisedListenerRewriteFilter, AdvertisedListenerTable}
 import net.uweeisele.kafka.proxy.filter.apiversion.ApiVersionFilter
-import net.uweeisele.kafka.proxy.filter.metrics.{ClientApiMetricsFilter, Evictable, MeasurableApiRequestHandlerChain, MeasurableApiResponseHandlerChain, ProduceClientApiMetricsFilter}
+import net.uweeisele.kafka.proxy.filter.metrics.{ClientApiMetricsFilter, ClientMetricsFilter, Evictable, MeasurableApiRequestHandlerChain, MeasurableApiResponseHandlerChain, ProduceClientApiMetricsFilter}
 import net.uweeisele.kafka.proxy.forward.{RequestForwarder, RouteTable}
 import net.uweeisele.kafka.proxy.network.SocketServer
 import net.uweeisele.kafka.proxy.request.{ApiRequestHandler, ApiRequestHandlerChain, RequestHandlerPool}
@@ -44,7 +44,7 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
   private var evictionScheduler: ScheduledExecutorService = null
 
   private var metricsHttpServer: HTTPServer = null
-  private val metricsFilters: ListBuffer[ApiRequestHandler with ApiResponseHandler with Closeable with Evictable] = ListBuffer()
+  private val metricsFilters: ListBuffer[ApiRequestHandler with ApiResponseHandler with Evictable with Closeable] = ListBuffer()
 
   private var socketServer: SocketServer = null
   private var requestHandlerPool: RequestHandlerPool = null
@@ -82,8 +82,9 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
           .build()
 
         //metricsFilters += RequestMetricsFilter(proxyConfig.routes.keySet.toSeq, proxyConfig.routes.values.toSet.toSeq)
-        metricsFilters += ClientApiMetricsFilter("kafka", Duration(5, MINUTES))
-        metricsFilters += ProduceClientApiMetricsFilter("kafka", Duration(5, MINUTES))
+        //metricsFilters += ClientApiMetricsFilter("kafka", Duration(5, MINUTES))
+        //metricsFilters += ProduceClientApiMetricsFilter("kafka", Duration(5, MINUTES))
+        metricsFilters += ClientMetricsFilter("kafka", Duration(5, MINUTES))
         evictionScheduler.scheduleAtFixedRate(() => metricsFilters.foreach(_.evict()), 1, 1, MINUTES)
 
         // Create and start the socket server acceptor threads so that the bound port is known.

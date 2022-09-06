@@ -95,6 +95,14 @@ object RequestChannel extends LazyLogging {
 
     override def onComplete: Option[Send => Unit] = onCompleteCallback
 
+    def body[T <: AbstractResponse](implicit classTag: ClassTag[T], nn: NotNothing[T]): T = {
+      response match {
+        case r: T => r
+        case r =>
+          throw new ClassCastException(s"Expected response with type ${classTag.runtimeClass}, but found ${r.getClass}")
+      }
+    }
+
     override def toString: String =
       s"Response(type=Send, request=$request, response=$response, responseContext=$responseContext)"
   }

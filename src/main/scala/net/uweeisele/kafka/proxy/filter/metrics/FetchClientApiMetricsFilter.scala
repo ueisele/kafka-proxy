@@ -79,7 +79,7 @@ class FetchClientApiMetricsFilter(meterRegistry: MeterRegistry,
 
   override def handle(response: RequestChannel.SendResponse): Unit = {
     response.response.apiKey match {
-      case ApiKeys.PRODUCE =>
+      case ApiKeys.FETCH =>
         val (countersMap, countersMapLastUpdated) = fetchResponseCounters.getOrElseUpdate(
           (response.request.context.clientSocketAddress, response.request.context.clientId, response.request.context.principal,
             response.request.context.listenerName, response.responseContext.listenerName),
