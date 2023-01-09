@@ -9,17 +9,15 @@ import io.prometheus.client.exporter.HTTPServer
 import net.uweeisele.kafka.proxy.config.KafkaProxyConfig
 import net.uweeisele.kafka.proxy.filter.advertisedlistener.{AdvertisedListenerRewriteFilter, AdvertisedListenerTable}
 import net.uweeisele.kafka.proxy.filter.apiversion.ApiVersionFilter
-import net.uweeisele.kafka.proxy.filter.metrics.{ClientApiMetricsFilter, ClientMetricsFilter, Evictable, MeasurableApiRequestHandlerChain, MeasurableApiResponseHandlerChain, ProduceClientApiMetricsFilter}
+import net.uweeisele.kafka.proxy.filter.metrics.{ClientMetricsFilter, Evictable, MeasurableApiRequestHandlerChain, MeasurableApiResponseHandlerChain}
 import net.uweeisele.kafka.proxy.forward.{RequestForwarder, RouteTable}
 import net.uweeisele.kafka.proxy.network.SocketServer
 import net.uweeisele.kafka.proxy.request.{ApiRequestHandler, ApiRequestHandlerChain, RequestHandlerPool}
 import net.uweeisele.kafka.proxy.response.{ApiResponseHandler, ApiResponseHandlerChain, ResponseHandlerPool}
-import net.uweeisele.kafka.proxy.supplement.{HttpServer, PrometheusMetricsHttpHandler}
 import org.apache.kafka.common.protocol.ApiKeys
 import org.apache.kafka.common.utils.Time
 
 import java.io.Closeable
-import java.net.InetSocketAddress
 import java.util.Properties
 import java.util.concurrent.TimeUnit.MINUTES
 import java.util.concurrent.atomic.AtomicBoolean
@@ -65,26 +63,18 @@ class KafkaProxy(val proxyConfig: KafkaProxyConfig, time: Time = Time.SYSTEM) ex
       if (canStartup) {
         evictionScheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("eviction"))
 
-        //val jmxMeterRegistry = new JmxMeterRegistry(JmxConfig.DEFAULT, Clock.SYSTEM)
-        //Metrics.addRegistry(jmxMeterRegistry)
         val prometheusMeterRegistry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
         Metrics.addRegistry(prometheusMeterRegistry)
         implicit val meterRegistry: MeterRegistry = Metrics.globalRegistry
 
-        //val jmxCollector = Using(getClass.getClassLoader.getResourceAsStream("prometheus-jmx.yaml"))(new JmxCollector(_)).get
-        //jmxCollector.register(CollectorRegistry.defaultRegistry)
-        //metricsHttpServer = new HttpServer(new InetSocketAddress(8080), 10, 2, "metrics-http-server")
-        //  .addHandler("/metrics", new PrometheusMetricsHttpHandler(prometheusMeterRegistry.getPrometheusRegistry))
-        //  .start()
         metricsHttpServer = new HTTPServer.Builder()
-          .withPort(8080)
+          .withHostname(proxyConfig.filterMetricsListenerHostname)
+          .withPort(proxyConfig.filterMetricsListenerPort)
           .withRegistry(prometheusMeterRegistry.getPrometheusRegistry)
           .build()
 
-        //metricsFilters += RequestMetricsFilter(proxyConfig.routes.keySet.toSeq, proxyConfig.routes.values.toSet.toSeq)
-        //metricsFilters += ClientApiMetricsFilter("kafka", Duration(5, MINUTES))
-        //metricsFilters += ProduceClientApiMetricsFilter("kafka", Duration(5, MINUTES))
-        metricsFilters += ClientMetricsFilter("kafka", Duration(5, MINUTES))
+        //metricsFilters += ApiMetricsFilter(proxyConfig.routes.keySet.toSeq, proxyConfig.routes.values.toSet.toSeq)
+        metricsFilters += ClientMetricsFilter("kafka.client", proxyConfig.filterMetricsExpiry)
         evictionScheduler.scheduleAtFixedRate(() => metricsFilters.foreach(_.evict()), 1, 1, MINUTES)
 
         // Create and start the socket server acceptor threads so that the bound port is known.

@@ -28,9 +28,7 @@ libraryDependencies ++= Seq(
 
 libraryDependencies ++= Seq(
   "io.micrometer" % "micrometer-core" % "1.9.3",
-  "io.micrometer" % "micrometer-registry-jmx" % "1.9.3",
   "io.micrometer" % "micrometer-registry-prometheus" % "1.9.3",
-  "io.prometheus.jmx" % "collector" % "0.17.0",
   "io.prometheus" % "simpleclient_httpserver" % "0.16.0"
 )
 

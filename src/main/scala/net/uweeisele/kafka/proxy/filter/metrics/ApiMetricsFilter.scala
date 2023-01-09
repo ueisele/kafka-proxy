@@ -9,7 +9,6 @@ import org.apache.kafka.common.network.ListenerName
 import org.apache.kafka.common.protocol.ApiKeys
 
 import java.io.Closeable
-import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{Duration, FiniteDuration, MILLISECONDS, SECONDS}
 import scala.jdk.DurationConverters.ScalaDurationOps
 import scala.language.postfixOps;

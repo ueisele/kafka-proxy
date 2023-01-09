@@ -17,7 +17,7 @@ import scala.jdk.DurationConverters.ScalaDurationOps
 import scala.language.postfixOps
 
 object ClientMetricsFilter {
-  def apply(prefix: String = "kafka",
+  def apply(prefix: String = "kafka.client",
             ttl: FiniteDuration = Duration(5, MINUTES))
            (implicit meterRegistry: MeterRegistry): ClientMetricsFilter =
     new ClientMetricsFilter(prefix, ttl)
@@ -27,7 +27,7 @@ class ClientMetricsFilter(prefix: String = "kafka",
                           ttl: FiniteDuration = Duration(5, MINUTES))(implicit meterRegistry: MeterRegistry)
   extends ApiRequestHandler with ApiResponseHandler with Closeable with Evictable with LazyLogging {
 
-  private val metricsName = s"$prefix.client.requests"
+  private val metricsName = s"$prefix.requests"
 
   private val baseTagsBuilder: Function[SendResponse, Tags] = (response: SendResponse) => Tags.of(
     Tag.of("clientAddress", response.request.context.clientSocketAddress.getAddress.getHostAddress),
@@ -43,7 +43,9 @@ class ClientMetricsFilter(prefix: String = "kafka",
     Tag.of("apiVersion", response.request.context.apiVersion.toString))
 
   private val contextTagsBuilder: Function[SendResponse, Tags] = (response: SendResponse) => response.response.apiKey match {
-    case ApiKeys.PRODUCE => Tags.of(Tag.of("acks", response.request.body[ProduceRequest].acks.toString))
+    case ApiKeys.PRODUCE => Tags.of(
+      Tag.of("acks", response.request.body[ProduceRequest].acks.toString)
+    )
     case ApiKeys.FETCH => Tags.of(
       Tag.of("follower", response.request.body[FetchRequest].isFromFollower.toString),
       Tag.of("replicaId", response.request.body[FetchRequest].replicaId.toString),
@@ -52,7 +54,9 @@ class ClientMetricsFilter(prefix: String = "kafka",
       Tag.of("maxWait", response.request.body[FetchRequest].maxWait.toString),
       Tag.of("minBytes", response.request.body[FetchRequest].minBytes.toString)
     )
-    case ApiKeys.OFFSET_FETCH => Tags.of(Tag.of("groupId", response.request.body[OffsetFetchRequest].groupId()))
+    case ApiKeys.OFFSET_FETCH => Tags.of(
+      Tag.of("groupId", response.request.body[OffsetFetchRequest].groupId())
+    )
     case _ => Tags.empty()
   }
 

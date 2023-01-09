@@ -6,12 +6,20 @@ Status]]
 Use Cases for a L7 Proxy:
 
 * Client Metrics
+* Advertised Listener Mapping
 * Routing (e.g. based on user and tenant, topic, ...)
 * Encryption
 * Virtual Topics (e.g. with filters)
-* Namespaces
+* Namespaces (multi tenancy)
 * Authentication & Authorization
-* Policy Enforcement
+* Policy Enforcement (Topics, Configs, ...)
+* Credit-based Quotas (and throttling)
+
+Open topics:
+
+* Passthrough SASL authentication: Make principal available in Kafka proxy
+* Filter as plugins
+* Transparent request/response forwarding: Do not deserialize if not needed, to support newer Kafka protocols.
 
 == Quick Start
 

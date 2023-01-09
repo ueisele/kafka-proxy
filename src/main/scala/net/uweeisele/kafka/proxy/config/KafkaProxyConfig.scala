@@ -7,6 +7,7 @@ import org.apache.kafka.common.security.auth.SecurityProtocol
 
 import java.util.{Collections, Locale, Properties}
 import scala.collection.mutable
+import scala.concurrent.duration.{Duration, FiniteDuration, SECONDS}
 import scala.jdk.CollectionConverters._
 
 object Defaults {
@@ -53,6 +54,10 @@ object Defaults {
   /** ********* General Response Configuration ***********/
   val NumResponseHandlerThreads = 2
 
+  /** ********* Metrics Filter Configuration ********** */
+  val FilterMetricsListenerHostname = "0.0.0.0"
+  val FilterMetricsListenerPort = 8080
+  val FilterMetricsExpirySeconds = 300L
 }
 
 object KafkaProxyConfig {
@@ -123,6 +128,10 @@ object KafkaProxyConfig {
   /** ********* General Filter Configuration ***********/
   val AdvertisedListenersProp = "advertised.listeners"
 
+  /** ********* Metrics Filter Configuration ***********/
+  val FilterMetricsListenerHostnameProp = "filter.metrics.hostname"
+  val FilterMetricsListenerPortProp = "filter.metrics.port"
+  val FilterMetricsExpirySecondsProp = "filter.metrics.expiry.seconds"
 
   /* Documentation */
   /** ********* General (Acceptor) Network Configuration ***********/
@@ -209,6 +218,11 @@ object KafkaProxyConfig {
   /** ********* General Filter Configuration ***********/
   val AdvertisedListenersDoc = "Listeners to publish for clients to use, if different than the listeners config property."
 
+  /** ********* Metrics Filter Configuration ********** */
+  val FilterMetricsListenerHostnameDoc = "The hostname to which the metrics listener binds. Specify hostname as 0.0.0.0 to bind to all interfaces."
+  val FilterMetricsListenerPortDoc = "The port to which the metrics listener binds."
+  val FilterMetricsExpirySecondsDoc = "The duration in seconds until which metrics expired for which no updates were made."
+
   private val configDef = {
     import ConfigDef.Importance._
     import ConfigDef.Range._
@@ -276,6 +290,11 @@ object KafkaProxyConfig {
 
       /** ********* General Filter Configuration ***********/
       .define(AdvertisedListenersProp, STRING, null, HIGH, AdvertisedListenersDoc)
+
+      /** ********* Metrics Filter Configuration ********** */
+      .define(FilterMetricsListenerHostnameProp, STRING, Defaults.FilterMetricsListenerHostname, LOW, FilterMetricsListenerHostnameDoc)
+      .define(FilterMetricsListenerPortProp, INT, Defaults.FilterMetricsListenerPort, LOW, FilterMetricsListenerPortDoc)
+      .define(FilterMetricsExpirySecondsProp, LONG, Defaults.FilterMetricsExpirySeconds, MEDIUM, FilterMetricsExpirySecondsDoc)
   }
 
   def configNames: Seq[String] = configDef.names.asScala.toBuffer.sorted.toSeq
@@ -333,6 +352,11 @@ class KafkaProxyConfig(val props: java.util.Map[_, _], doLog: Boolean) extends A
 
   /** ********* General Response Configuration ***********/
   def numResponseHandlerThreads = getInt(KafkaProxyConfig.NumResponseHandlerThreadsProp)
+
+  /** ********* Metrics Filter Configuration ********** */
+  def filterMetricsListenerHostname: String = getString(KafkaProxyConfig.FilterMetricsListenerHostnameProp)
+  def filterMetricsListenerPort: Int = getInt(KafkaProxyConfig.FilterMetricsListenerPortProp)
+  def filterMetricsExpiry: FiniteDuration = Duration(getLong(KafkaProxyConfig.FilterMetricsExpirySecondsProp), SECONDS)
 
   private def getMap(propName: String, propValue: String): Map[String, String] = {
     try {
