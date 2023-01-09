@@ -113,9 +113,9 @@ class ClientMetricsFilter(prefix: String = "kafka",
       case ApiKeys.FETCH =>
         // fetchMaxWait(tags, apiKey.name).set(response.request.body[FetchRequest].maxWait)
         // fetchMinBytes(tags, apiKey.name).set(response.request.body[FetchRequest].minBytes)
-        response.body[FetchResponse[_]].data().responses().asScala.foreach { topicData =>
+        response.body[FetchResponse].data().responses().asScala.foreach { topicData =>
           val topicTags = tags.and(Tag.of("topic", topicData.topic))
-          requestsTopicBytesDistribution(topicTags, apiKey.name).record(topicData.partitionResponses().asScala.map(data => data.recordSet().sizeInBytes()).sum)
+          requestsTopicBytesDistribution(topicTags, apiKey.name).record(topicData.partitions().asScala.map(data => data.records().sizeInBytes()).sum)
         }
       case _ =>
     }

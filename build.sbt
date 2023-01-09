@@ -18,7 +18,7 @@ scalacOptions ++= {
 javacOptions ++= Seq("-source", "17", "-target", "17")
 
 libraryDependencies ++= Seq(
-  "org.apache.kafka" % "kafka-clients" % "2.8.0",
+  "org.apache.kafka" % "kafka-clients" % "3.2.1",
   "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5",
   "org.apache.logging.log4j" % "log4j-slf4j-impl" % "2.18.0",
   "com.fasterxml.jackson.core" % "jackson-databind" % "2.13.3",
